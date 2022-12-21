@@ -2,3 +2,6 @@ aligntest
 lombardgrid
 results
 s1
+align
+logs
+__pycache__

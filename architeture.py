@@ -1,11 +1,12 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
-from keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, Reshape, Dense
-# from highway_layer import Highway
+
+from keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, Reshape, Dense, Embedding
 from keras import Model, Sequential
 from tensorflow.nn import ctc_loss
 
+# from highway_layer import Highway
 # drop = # ? talvez exista uma dropout layer
 
 import tensorflow as tf
@@ -22,7 +23,7 @@ class CTCLoss(keras.losses.Loss):
             -1 (num_classes - 1). 
     """
 
-    def __init__(self, logits_time_major=False, blank_index=-1, 
+    def __init__(self, logits_time_major=False, blank_index=0, 
                  name='ctc_loss'):
         super().__init__(name=name)
         self.logits_time_major = logits_time_major
@@ -35,15 +36,14 @@ class CTCLoss(keras.losses.Loss):
         y_true = tf.cast(y_true, tf.int32)
         y_pred_shape = tf.shape(y_pred)
         logit_length = tf.fill([y_pred_shape[0]], y_pred_shape[1])
-        print(y_true)
-        print(y_pred)
         loss = tf.nn.ctc_loss(
-            labels=y_true,
+            labels=tf.sparse.from_dense(y_true),
             logits=y_pred,
             label_length=None,
             logit_length=logit_length,
             logits_time_major=self.logits_time_major,
-            blank_index=self.blank_index)
+            blank_index=0
+        )
         return tf.math.reduce_mean(loss)
 
 def get_model():
@@ -71,10 +71,12 @@ def get_model():
 
   model = Reshape((75, 1728))(model)
 
-  gru = Bidirectional(GRU(512, return_sequences=True, return_state=True))
-  encoder_outputs, encoder_state_fwd_h, encoder_state_bkw_h = gru(model)
+  gru = Bidirectional(GRU(512, return_sequences=True, return_state=True), None)
+  gru_output1, gru_output2, bck, fwd = gru(model)
+#   print(a)
+#   model = Reshape((75, 512))(model)
 
-  model = Attention()([encoder_state_fwd_h, encoder_state_bkw_h])
+  model = Attention()([gru_output1, gru_output2])
   # model = Dense(1, activation="sigmoid")(model)
 
   model = Model(input, model)

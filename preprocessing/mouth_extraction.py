@@ -8,23 +8,23 @@ import tqdm
 ffd = dlib.get_frontal_face_detector()
 lmd = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 
-def create_dir_recursively(path):
+def __create_dir_recursively(path):
   while True:
     try:
       os.mkdir(path)
     except FileExistsError:
       return
     except FileNotFoundError:
-      create_dir_recursively("/".join(path.split("/")[:-1]))
+      __create_dir_recursively("/".join(path.split("/")[:-1]))
 
-def get_all_videos(path, extension, dest_folder):
+def __get_all_videos(path, extension, dest_folder):
   orig_dest_videos = {}
   files_in = os.listdir(path)
   for file in files_in:
     curr_file_path = os.path.join(path,file)
     if os.path.isdir(curr_file_path):
       new_dest_folder = os.path.join(dest_folder, file)
-      orig_dest_videos.update(get_all_videos(curr_file_path, extension, new_dest_folder))
+      orig_dest_videos.update(__get_all_videos(curr_file_path, extension, new_dest_folder))
 
     if file.endswith(extension):
       new_video_path = os.path.join(dest_folder, ".".join(file.split(".")[:-1]) + ".avi")
@@ -33,11 +33,11 @@ def get_all_videos(path, extension, dest_folder):
   return orig_dest_videos
 
 def convert_all_videos(path, extension, dest_folder, verbose = 1):
-  orig_dest_videos = get_all_videos(path, extension, dest_folder)
+  orig_dest_videos = __get_all_videos(path, extension, dest_folder)
 
   for orig in tqdm.tqdm(orig_dest_videos, desc="Convertendo Video", disable=verbose<=0):
     if not os.path.isfile(orig_dest_videos[orig]):
-      create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
+      __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
       try:
         FaceVideo(orig, 0 if verbose < 2 else 1).get_mouth_video(orig_dest_videos[orig])
       except (IndexError, TypeError, ValueError):
