@@ -2,51 +2,34 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 
-from keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, Reshape, Dense, Embedding
-from keras import Model, Sequential
-from tensorflow.nn import ctc_loss
-
-# from highway_layer import Highway
-# drop = # ? talvez exista uma dropout layer
+from keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, Concatenate
+from keras import Model
 
 import tensorflow as tf
-from tensorflow import keras
-
+import keras
 
 class CTCLoss(keras.losses.Loss):
-    """ A class that wraps the function of tf.nn.ctc_loss. 
-    
-    Attributes:
-        logits_time_major: If False (default) , shape is [batch, time, logits], 
-            If True, logits is shaped [time, batch, logits]. 
-        blank_index: Set the class index to use for the blank label. default is
-            -1 (num_classes - 1). 
-    """
 
-    def __init__(self, logits_time_major=False, blank_index=0, 
-                 name='ctc_loss'):
+    def __init__(self, name="ctc_loss"):
         super().__init__(name=name)
-        self.logits_time_major = logits_time_major
-        self.blank_index = blank_index
 
     def call(self, y_true, y_pred):
-        """ Computes CTC (Connectionist Temporal Classification) loss. work on
-        CPU, because y_true is a SparseTensor.
-        """
-        y_true = tf.cast(y_true, tf.int32)
-        y_pred_shape = tf.shape(y_pred)
-        logit_length = tf.fill([y_pred_shape[0]], y_pred_shape[1])
-        loss = tf.nn.ctc_loss(
-            labels=tf.sparse.from_dense(y_true),
-            logits=y_pred,
-            label_length=None,
-            logit_length=logit_length,
-            logits_time_major=self.logits_time_major,
-            blank_index=0
-        )
-        return tf.math.reduce_mean(loss)
+        # Compute the training-time loss value
+        batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
+        input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
+
+        blank_idx = tf.transpose(tf.where(tf.equal(y_true, tf.constant(-2, dtype="int64"))))[1]
+        # label_length = tf.cast(tf.shape(y_true)[1], dtype="int64")
+        # label_length = tf.concat([blank_idx[0], tf.reshape(label_length, shape=(1,))], 0)[0]
+
+        input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
+        label_length = tf.math.multiply(tf.reshape(blank_idx, shape=(batch_len, 1)), tf.ones(shape=(batch_len, 1), dtype="int64"))
+
+        loss = keras.backend.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+        return loss
 
 def get_model():
+  # LCANet
   input = Input(shape=(75, 100, 50, 3))
   model = ZeroPadding3D(padding=(1, 2, 2))(input)
   model = Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
@@ -69,23 +52,18 @@ def get_model():
   # model = Highway()(model) # foi removida porque é facil implementar com a api do keras (pesquisar)
   # model = Highway()(model) # aprender a usar direito, é pra fazer o reshape diretamente nela
 
-  model = Reshape((75, 1728))(model)
+  model = TimeDistributed(Flatten())(model)
 
-  gru = Bidirectional(GRU(512, return_sequences=True, return_state=True), None)
-  gru_output1, gru_output2, bck, fwd = gru(model)
-#   print(a)
-#   model = Reshape((75, 512))(model)
+  gru_output1, bck, fwd = Bidirectional(GRU(256, return_sequences=True, return_state=True))(model)
 
-  model = Attention()([gru_output1, gru_output2])
-  # model = Dense(1, activation="sigmoid")(model)
+  hidden_states = Concatenate()([fwd, bck])
+  model = Attention(use_scale=True)([gru_output1, hidden_states])
+
+  model, _ = GRU(28, return_sequences=True, return_state=True, activation=None)(model)
+  model = Activation("softmax")(model)
 
   model = Model(input, model)
-
-  ctc_l = ctc_loss#(["sil", "bin", "blue", "at", "f", "two", "now", "sil"])
-
-  model.compile("adam", loss=CTCLoss())
-
-  # model.summary()
+  model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
 
   return model
 

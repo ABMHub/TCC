@@ -13,10 +13,10 @@ def process_file(path : str):
     if wrd not in __SILENCE:
       for char in wrd:
         if ord("a") <= ord(char) <= ord('z'):
-          char_string.append((ord(char) - ord('a')) + 2) # converte letra a letra para numero
-      char_string.append(1)
+          char_string.append((ord(char) - ord('a'))) # converte letra a letra para numero
+      char_string.append(26)
   
-  return char_string
+  return char_string[:-1]
 
 def process_folder(path : str):
   d = dict()
@@ -29,6 +29,6 @@ def process_folder(path : str):
   return d
 
 def add_padding(char_string : List[int], expected_size : int):
-  return char_string + [0]*(expected_size - len(char_string))
+  return char_string + [-2] + [-1]*((expected_size) - len(char_string))
     
           
