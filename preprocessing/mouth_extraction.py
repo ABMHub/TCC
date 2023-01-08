@@ -4,6 +4,8 @@ import numpy as np
 from typing import List, Tuple
 import os
 import tqdm
+from multiprocessing import Process
+import time
 
 ffd = dlib.get_frontal_face_detector()
 lmd = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
@@ -43,6 +45,37 @@ def convert_all_videos(path, extension, dest_folder, verbose = 1):
       except (IndexError, TypeError, ValueError):
         print(f"Video {orig} com erro")
 
+def __video_class_wrapper(orig, verbose, path):
+  try:
+    FaceVideo(orig, 0 if verbose < 2 else 1).get_mouth_video(path)
+  except (IndexError, TypeError, ValueError):
+    print(f"Video {orig} com erro")
+
+
+def convert_all_videos_multiprocess(path, extension, dest_folder, verbose = 1, process_count = 6):
+  orig_dest_videos = __get_all_videos(path, extension, dest_folder)
+
+  processes = []
+
+  for orig in tqdm.tqdm(orig_dest_videos, desc="Convertendo Video", disable=verbose<=0):
+    while len(processes) >= process_count:
+      deleted = False
+      for i in range(len(processes)-1, -1, -1):
+        if not processes[i].is_alive():
+          processes[i].close()
+          del processes[i]
+          deleted = True
+
+      if not deleted:
+        time.sleep(0.5)
+
+    if not os.path.isfile(orig_dest_videos[orig]):
+      __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
+      p = Process(target=__video_class_wrapper, args=(orig, verbose, orig_dest_videos[orig]))
+      p.start()
+      processes.append(p)
+      
+
 class FaceVideo:
   def __init__(self, video_path : str, verbose = 1):
     self.video = cv2.VideoCapture(video_path)
@@ -69,10 +102,10 @@ class FaceVideo:
 
     self.frames = [FaceFrame(frame_obj.transform(self.dest)) for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0)] 
 
-    n_video = cv2.VideoWriter("./testetcc.avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, tuple(reversed(self.frames[0].img.shape[0:2])))
-    for frame in self.frames:
-      n_video.write(frame.img)
-    n_video.release()
+    # n_video = cv2.VideoWriter("./testetcc.avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, tuple(reversed(self.frames[0].img.shape[0:2])))
+    # for frame in self.frames:
+    #   n_video.write(frame.img)
+    # n_video.release()
 
     self.mouth_imgs = [cv2.resize(frame_obj.get_mouth_img(), (100, 50)) for frame_obj in tqdm.tqdm(self.frames, desc="Adquirindo recortes da boca", disable=self.verbose==0)]
 
