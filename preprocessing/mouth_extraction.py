@@ -19,41 +19,46 @@ def __create_dir_recursively(path):
     except FileNotFoundError:
       __create_dir_recursively("/".join(path.split("/")[:-1]))
 
-def __get_all_videos(path, extension, dest_folder):
+def __get_all_videos(path, extension, dest_folder, preserve_folder_structure = False):
   orig_dest_videos = {}
   files_in = os.listdir(path)
   for file in files_in:
     curr_file_path = os.path.join(path,file)
     if os.path.isdir(curr_file_path):
-      new_dest_folder = os.path.join(dest_folder, file)
-      orig_dest_videos.update(__get_all_videos(curr_file_path, extension, new_dest_folder))
+      if preserve_folder_structure:
+        new_dest_folder = os.path.join(dest_folder, file)
+        orig_dest_videos.update(__get_all_videos(curr_file_path, extension, new_dest_folder))
+      else:
+        orig_dest_videos.update(__get_all_videos(curr_file_path, extension, dest_folder))
 
     if file.endswith(extension):
-      new_video_path = os.path.join(dest_folder, ".".join(file.split(".")[:-1]) + ".avi")
+      new_video_path = os.path.join(dest_folder, ".".join(file.split(".")[:-1]))
       orig_dest_videos[curr_file_path] = new_video_path
 
   return orig_dest_videos
 
-def convert_all_videos(path, extension, dest_folder, verbose = 1):
+def convert_all_videos(path, extension, dest_folder, numpy_file = True, verbose = 1):
   orig_dest_videos = __get_all_videos(path, extension, dest_folder)
+  dest_extension = ".npy" if numpy_file else ".avi"
 
   for orig in tqdm.tqdm(orig_dest_videos, desc="Convertendo Video", disable=verbose<=0):
-    if not os.path.isfile(orig_dest_videos[orig]):
+    if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
       __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
       try:
-        FaceVideo(orig, 0 if verbose < 2 else 1).get_mouth_video(orig_dest_videos[orig])
-      except (IndexError, TypeError, ValueError):
-        print(f"Video {orig} com erro")
+        FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(orig_dest_videos[orig])
+      except (IndexError, TypeError, ValueError) as err:
+        print(f"Video {orig} com erro\n{err}")
 
 def __video_class_wrapper(orig, verbose, path):
   try:
-    FaceVideo(orig, 0 if verbose < 2 else 1).get_mouth_video(path)
-  except (IndexError, TypeError, ValueError):
-    print(f"Video {orig} com erro")
+    FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(path)
+  except (IndexError, TypeError, ValueError) as err:
+    print(f"Video {orig} com erro\n{err}")
 
 
-def convert_all_videos_multiprocess(path, extension, dest_folder, verbose = 1, process_count = 6):
+def convert_all_videos_multiprocess(path, extension, dest_folder, numpy_file = True, verbose = 1, process_count = 6):
   orig_dest_videos = __get_all_videos(path, extension, dest_folder)
+  dest_extension = ".npy" if numpy_file else ".avi"
 
   processes = []
 
@@ -69,7 +74,7 @@ def convert_all_videos_multiprocess(path, extension, dest_folder, verbose = 1, p
       if not deleted:
         time.sleep(0.5)
 
-    if not os.path.isfile(orig_dest_videos[orig]):
+    if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
       __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
       p = Process(target=__video_class_wrapper, args=(orig, verbose, orig_dest_videos[orig]))
       p.start()
@@ -77,10 +82,11 @@ def convert_all_videos_multiprocess(path, extension, dest_folder, verbose = 1, p
       
 
 class FaceVideo:
-  def __init__(self, video_path : str, verbose = 1):
+  def __init__(self, video_path : str, numpy_file : bool = True, verbose = 1):
     self.video = cv2.VideoCapture(video_path)
     self.frame_count = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
     self.frames = []
+    self.numpy_file = numpy_file
     self.verbose = verbose
 
     pbar = tqdm.tqdm(desc='Carregando video', total=self.frame_count, disable=self.verbose==0)
@@ -107,12 +113,18 @@ class FaceVideo:
     #   n_video.write(frame.img)
     # n_video.release()
 
-    self.mouth_imgs = [cv2.resize(frame_obj.get_mouth_img(), (100, 50)) for frame_obj in tqdm.tqdm(self.frames, desc="Adquirindo recortes da boca", disable=self.verbose==0)]
+    self.mouth_imgs = np.array([cv2.resize(frame_obj.get_mouth_img(), (100, 50)) for frame_obj in tqdm.tqdm(self.frames, desc="Adquirindo recortes da boca", disable=self.verbose==0)])
 
-    n_video = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"MJPG"), 25, (100, 50))
-    for frame in self.mouth_imgs:
-      n_video.write(frame)
-    n_video.release()
+    assert self.mouth_imgs.shape == (75, 50, 100, 3)
+
+    if self.numpy_file:
+      np.save(path + ".npy", self.mouth_imgs, allow_pickle=True, fix_imports=False)
+
+    else:
+      n_video = cv2.VideoWriter(path + ".avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, (100, 50))
+      for frame in self.mouth_imgs:
+        n_video.write(frame)
+      n_video.release()
 
 class FaceFrame:
   def __init__(self, img : np.ndarray):

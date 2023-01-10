@@ -1,5 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 
 from keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, Concatenate
@@ -15,6 +16,7 @@ class CTCLoss(keras.losses.Loss):
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value
+        y_true = tf.cast(y_true, dtype="int64")
         batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
         input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
 
