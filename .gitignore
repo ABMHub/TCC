@@ -1,7 +1,6 @@
-aligntest
-lombardgrid
-results
-s1
-align
+# modelos salvos
+*.h5
+*.tf
+
 logs
 __pycache__

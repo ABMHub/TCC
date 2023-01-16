@@ -56,17 +56,18 @@ def get_model():
 
   model = TimeDistributed(Flatten())(model)
 
-  gru_output1, bck, fwd = Bidirectional(GRU(256, return_sequences=True, return_state=True))(model)
+  gru_output1, bck, fwd = Bidirectional(GRU(512, return_sequences=True, return_state=True))(model)
 
   hidden_states = Concatenate()([fwd, bck])
-  model = Attention(use_scale=True)([gru_output1, hidden_states])
+  model = Attention()([gru_output1, hidden_states])
 
   model, _ = GRU(28, return_sequences=True, return_state=True, activation=None)(model)
   model = Activation("softmax")(model)
 
   model = Model(input, model)
-  model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
+  compile_model(model)
 
   return model
 
-get_model()
+def compile_model(model : Model):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
