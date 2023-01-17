@@ -3,11 +3,11 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 
-from keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, Concatenate
-from keras import Model
+from tensorflow.keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, Concatenate
+from tensorflow.keras import Model
 
 import tensorflow as tf
-import keras
+from tensorflow import keras
 
 class CTCLoss(keras.losses.Loss):
 

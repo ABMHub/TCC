@@ -1,9 +1,4 @@
-from preprocessing.align_processing import process_file, add_padding
-import cv2
 import os
-import numpy as np
-from sklearn.model_selection import train_test_split
-import tqdm
 import random
 from generator.batch_generator import BatchGenerator
 

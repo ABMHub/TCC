@@ -1,7 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-from keras.utils import Sequence
+from tensorflow.keras.utils import Sequence
 import numpy as np
 from util.video import read_video
 from preprocessing.align_processing import process_file, add_padding

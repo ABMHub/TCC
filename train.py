@@ -1,7 +1,7 @@
 import argparse
 from architeture import get_model, compile_model
-from keras.models import load_model
-from keras.callbacks import TensorBoard
+from tensorflow.keras.models import load_model
+from tensorflow.keras.callbacks import TensorBoard
 import datetime
 import os
 from preprocessing.preprocessing import get_training_data
