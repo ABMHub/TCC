@@ -3,7 +3,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 
-from tensorflow.keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, Concatenate
+from tensorflow.keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, AdditiveAttention, MultiHeadAttention
 from tensorflow.keras import Model
 
 import tensorflow as tf
@@ -56,10 +56,10 @@ def get_model():
 
   model = TimeDistributed(Flatten())(model)
 
-  gru_output1, bck, fwd = Bidirectional(GRU(512, return_sequences=True, return_state=True))(model)
+  gru_output1, gru_output2, _, _ = Bidirectional(GRU(512, return_sequences=True, return_state=True), None)(model)
 
-  hidden_states = Concatenate()([fwd, bck])
-  model = Attention()([gru_output1, hidden_states])
+#   hidden_states = Concatenate()([fwd, bck])
+  model = AdditiveAttention()([gru_output1, gru_output2])
 
   model, _ = GRU(28, return_sequences=True, return_state=True, activation=None)(model)
   model = Activation("softmax")(model)

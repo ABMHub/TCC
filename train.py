@@ -31,7 +31,7 @@ def main():
     model = get_model()
   
   else:
-    model = load_model(args["trained_model_path"])
+    model = load_model(args["trained_model_path"], compile=False)
     compile_model(model)
 
   callback_list = []

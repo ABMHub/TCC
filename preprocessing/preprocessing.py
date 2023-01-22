@@ -10,6 +10,8 @@ def get_training_data(videos_path : str, align_path : str, batch_size = 1, val_s
   data = list(zip(videos, aligns))
   num_videos = len(data)
   val_num = int(num_videos*(val_size))
+  
+  random.seed(42)
   random.shuffle(data)
 
   val_data = data[:val_num]

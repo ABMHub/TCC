@@ -1,6 +1,7 @@
 # modelos salvos
 *.h5
 *.tf
+modelos/
 
 logs
 __pycache__
