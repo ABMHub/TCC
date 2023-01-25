@@ -59,7 +59,7 @@ def get_model():
   gru_output1, gru_output2, _, _ = Bidirectional(GRU(512, return_sequences=True, return_state=True), None)(model)
 
 #   hidden_states = Concatenate()([fwd, bck])
-  model = AdditiveAttention()([gru_output1, gru_output2])
+  model = MultiHeadAttention(75, 28)(gru_output1, gru_output2)
 
   model, _ = GRU(28, return_sequences=True, return_state=True, activation=None)(model)
   model = Activation("softmax")(model)
