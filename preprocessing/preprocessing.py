@@ -2,23 +2,23 @@ import os
 import random
 from generator.batch_generator import BatchGenerator
 
-def get_training_data(videos_path : str, align_path : str, batch_size = 1, val_size : float = 0.2, n_videos = None):
+def get_training_data(videos_path : str, align_path : str, batch_size = 1, val_size : float = 0.2, n_videos = None, data_augmentation=True):
   file_names = os.listdir(videos_path)
-  videos = [os.path.join(videos_path, elem) for elem in file_names]
-  aligns = [os.path.join(align_path, ".".join(elem.split(".")[:-1]) + ".align") for elem in file_names] # get align files path list
 
-  data = list(zip(videos, aligns))
-  num_videos = len(data)
-  val_num = int(num_videos*(val_size))
-  
   random.seed(42)
-  random.shuffle(data)
+  random.shuffle(file_names)
 
-  val_data = data[:val_num]
-  train_data = data[val_num:]
+  num_videos = len(file_names)
+  val_num = int(num_videos*(val_size))
 
-  train = BatchGenerator(train_data, batch_size)
-  val = None if val_size is None else BatchGenerator(val_data, batch_size)
+  val_files = file_names[:val_num]
+  train_files = file_names[val_num:]
+
+  videos = [[os.path.join(videos_path, elem) for elem in file_set] for file_set in [train_files, val_files]]
+  aligns = [[os.path.join(align_path, ".".join(elem.split(".")[:-1]) + ".align") for elem in file_set] for file_set in [train_files, val_files]]  # get align files path list
+  
+  train = BatchGenerator((videos[0], aligns[0]), batch_size, augmentation=data_augmentation)
+  val = None if val_size is None else BatchGenerator((videos[1], aligns[1]), batch_size, augmentation=False)
 
   return {"train": train, "validation": val}
   
