@@ -3,7 +3,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import tensorflow as tf
 
-from tensorflow.keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, Dropout, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, AdditiveAttention, MultiHeadAttention
+from tensorflow.keras.layers import GRU, Bidirectional, Conv3D, Attention, Input, BatchNormalization, Activation, SpatialDropout3D, MaxPool3D, ZeroPadding3D, Flatten, TimeDistributed, AdditiveAttention, MultiHeadAttention
 from tensorflow.keras import Model
 
 import tensorflow as tf
@@ -21,8 +21,6 @@ class CTCLoss(keras.losses.Loss):
         input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
 
         blank_idx = tf.transpose(tf.where(tf.equal(y_true, tf.constant(-2, dtype="int64"))))[1]
-        # label_length = tf.cast(tf.shape(y_true)[1], dtype="int64")
-        # label_length = tf.concat([blank_idx[0], tf.reshape(label_length, shape=(1,))], 0)[0]
 
         input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
         label_length = tf.math.multiply(tf.reshape(blank_idx, shape=(batch_len, 1)), tf.ones(shape=(batch_len, 1), dtype="int64"))
@@ -38,18 +36,21 @@ def get_model():
   model = BatchNormalization()(model)
   model = Activation("relu")(model)
   model = MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+  model = SpatialDropout3D(0.5)(model)
 
   model = ZeroPadding3D(padding=(1, 2, 2))(model)
   model = Conv3D(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1))(model)
   model = BatchNormalization()(model)
   model = Activation("relu")(model)
   model = MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+  model = SpatialDropout3D(0.5)(model)
 
   model = ZeroPadding3D(padding=(1, 2, 2))(model)
   model = Conv3D(filters=96, kernel_size=(3, 5, 5), strides=(1, 1, 1))(model) # ? ta falando 1 2 2 no artigo, mas nao bate com o summar
   model = BatchNormalization()(model)
   model = Activation("relu")(model)
   model = MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+  model = SpatialDropout3D(0.5)(model)
 
   # model = Highway()(model) # foi removida porque é facil implementar com a api do keras (pesquisar)
   # model = Highway()(model) # aprender a usar direito, é pra fazer o reshape diretamente nela
