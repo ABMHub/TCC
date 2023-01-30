@@ -1,0 +1,3 @@
+[submodule "CTCDecoder"]
+	path = CTCDecoder
+	url = https://github.com/githubharald/CTCDecoder

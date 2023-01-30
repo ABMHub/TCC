@@ -1,15 +1,14 @@
 import os
 
-from tensorflow.keras.utils import Sequence
 import tensorflow as tf
 import numpy as np
 from util.video import read_video
-from preprocessing.align_processing import process_file, add_padding
+from preprocessing.align_processing import read_file, add_padding, sentence2number
 
 RANDOM_SEED = 42
 
-class BatchGenerator(Sequence):
-  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False) -> None:
+class BatchGenerator(tf.keras.utils.Sequence):
+  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False) -> None:
     super().__init__()
 
     self.video_loader = self.__init_video_loader(data[0][0])
@@ -27,10 +26,13 @@ class BatchGenerator(Sequence):
       self.batch_size = int(self.batch_size / 2)
       self.generator_steps *= 2
 
-    y_dict = self.__load_y(data[1])
+    y_dict = self.__load_y(data[1], preserve_strings=preserve_strings)
+
+    self.strings = y_dict["strings"]
 
     self.data = list(zip(data[0], y_dict["regular"]))
 
+    self.aug_data = None
     if augmentation:
       self.aug_data = list(zip(aug_x, y_dict["augmentation"]))
 
@@ -45,27 +47,21 @@ class BatchGenerator(Sequence):
 
     return loaders[extension] # essa decisao pode ser feita para cada video... mas adiciona o custo de tempo do split para achar a extensao
 
-  def __load_y(self, y):
+  def __load_y(self, y, preserve_strings : bool = False):
     print("Carregando alinhamentos...")
-    processed_y = []
-    data_list = [processed_y]
-    for i in range(self.generator_steps):
-      for j in range(self.batch_size):
-        index = i*self.batch_size + j
-        if index >= self.data_number: break
-        processed_y.append(process_file(y[index]))
+    read_y = [read_file(elem) for elem in y]
+    processed_y = [sentence2number(elem) for elem in read_y]
+
+    read_y = read_y if preserve_strings else None
+
+    aug_y = None
 
     if self.augmentation:
       aug_y = np.copy(processed_y)
       np.random.seed(RANDOM_SEED)
       np.random.shuffle(aug_y)
-      data_list.append(aug_y)
 
-    if len(data_list) == 1:
-      return {"regular": data_list[0]}
-
-    else:
-      return {"regular": data_list[0], "augmentation": data_list[1]}
+    return {"regular": processed_y, "augmentation": aug_y, "strings": read_y}
 
   def __len__(self) -> int:
     return self.generator_steps

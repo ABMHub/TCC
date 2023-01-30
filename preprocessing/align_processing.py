@@ -3,20 +3,29 @@ from typing import List
 
 __SILENCE = ["sil"]
 
-def process_file(path : str):
+alignment = list[int]
+
+def sentence2number(sentence : list[str]) -> alignment:
   char_string = []
+  for wrd in sentence:
+    for char in wrd:
+      if ord("a") <= ord(char) <= ord('z'):
+        char_string.append((ord(char) - ord('a'))) # converte letra a letra para numero
+    char_string.append(26)
+
+  return char_string[:-1]
+
+def read_file(path : str) -> list[str]:
+  sentence = []
   f = open(path)
   lines = f.readlines() # timestamp timestamp palavra
 
   for line in lines:
     wrd = line.split()[-1] # palavra
     if wrd not in __SILENCE:
-      for char in wrd:
-        if ord("a") <= ord(char) <= ord('z'):
-          char_string.append((ord(char) - ord('a'))) # converte letra a letra para numero
-      char_string.append(26)
+      sentence.append(wrd)
   
-  return char_string[:-1]
+  return sentence
 
 def process_folder(path : str):
   d = dict()
@@ -24,7 +33,7 @@ def process_folder(path : str):
 
   for file in list_dir:
     if file.endswith(".align"):
-      d[file] = process_file(os.path.join(path, file))
+      d[file] = sentence2number(read_file(os.path.join(path, file)))
       
   return d
 
