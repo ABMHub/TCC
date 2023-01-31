@@ -17,8 +17,8 @@ def get_training_data(videos_path : str, align_path : str, batch_size = 1, val_s
   videos = [[os.path.join(videos_path, elem) for elem in file_set] for file_set in [train_files, val_files]]
   aligns = [[os.path.join(align_path, ".".join(elem.split(".")[:-1]) + ".align") for elem in file_set] for file_set in [train_files, val_files]]  # get align files path list
    
-  train = None if validation_only is True           else BatchGenerator((videos[0], aligns[0]), batch_size, augmentation=data_augmentation)
-  val =   None if val_size is None or val_size == 0 else BatchGenerator((videos[1], aligns[1]), batch_size, augmentation=False, preserve_strings=True)
+  train = BatchGenerator((videos[0], aligns[0]), batch_size, augmentation=data_augmentation)
+  val = None if val_size is None or val_size == 0 else BatchGenerator((videos[1], aligns[1]), batch_size, augmentation=False, preserve_strings=True, mean_and_std=(train.mean, train.std_var))
 
   return {"train": train, "validation": val}
   

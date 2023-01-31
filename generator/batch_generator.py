@@ -1,14 +1,12 @@
-import os
-
+import math
 import tensorflow as tf
 import numpy as np
-from util.video import read_video
 from preprocessing.align_processing import read_file, add_padding, sentence2number
 
 RANDOM_SEED = 42
 
 class BatchGenerator(tf.keras.utils.Sequence):
-  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False) -> None:
+  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False, mean_and_std : tuple[float, float] = None) -> None:
     super().__init__()
 
     self.video_loader = self.__init_video_loader(data[0][0])
@@ -26,7 +24,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
       self.batch_size = int(self.batch_size / 2)
       self.generator_steps *= 2
 
-    y_dict = self.__load_y(data[1], preserve_strings=preserve_strings)
+    y_dict = self.__load_y(data[1], preserve_strings=preserve_strings) # validation_only deve impedir que essa funcao seja executada
 
     self.strings = y_dict["strings"]
 
@@ -35,6 +33,29 @@ class BatchGenerator(tf.keras.utils.Sequence):
     self.aug_data = None
     if augmentation:
       self.aug_data = list(zip(aug_x, y_dict["augmentation"]))
+
+    if mean_and_std is None:
+      self.mean, self.std_var = 0, 1
+      self.mean, self.std_var = self.__get_std_params()
+
+    else:
+      self.mean, self.std_var = mean_and_std
+
+  def __get_std_params(self): # devo eu fazer a standatization com os dados de augmentation tbm?
+    batch_mean = []
+    for i in range(self.generator_steps):
+      data = self.__getitem__(i)
+      batch_mean.append(np.mean(data[0]))
+
+    dataset_mean = np.mean(batch_mean) # a media nao esta exata. o ultimo batch eh menor
+    dataset_std = 0
+
+    for i in range(self.generator_steps): # encontrar algum jeito de calcular 
+      data = self.__getitem__(i)
+      dataset_std += np.sum(np.square(data[0] - dataset_mean))
+    dataset_std = math.sqrt(dataset_std/(self.data_number*75*50*100*3))
+
+    return dataset_mean, dataset_std    
 
   def __init_video_loader(self, file):
     loaders = {
@@ -98,4 +119,4 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
     y = [add_padding(elem, max_y_size) for elem in y]    
 
-    return np.array(x)/255, np.array(y) # necessario retirar o /255 e substituir por uma standalizacao
+    return (np.array(x) - self.mean)/self.std_var, np.array(y) # necessario retirar o /255 e substituir por uma standalizacao

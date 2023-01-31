@@ -27,7 +27,7 @@ def main():
   model.load_data(args["dataset_path"], args["alignment_path"], batch_size = args["batch_size"], validation_slice = 0.2, validation_only=args["skip_training"])
 
   if not args["skip_training"]:
-    model.fit(args["epochs"], args["logs_folder"])
+    model.fit(args["epochs"], args["logs_folder"], args["save_model_path"] + "_best")
     model.save_model(args["save_model_path"])
 
   if args["evaluate_model"]:

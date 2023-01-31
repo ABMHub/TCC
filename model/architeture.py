@@ -47,7 +47,7 @@ class LCANet():
     """
     self.data = get_training_data(x_path, y_path, batch_size = batch_size, val_size = validation_slice, validation_only = validation_only)
 
-  def fit(self, epochs : int = 1, tensorboard_logs : str = None) -> None:
+  def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None) -> None:
     """Realiza o treinamento do modelo.
 
     Args:
@@ -60,6 +60,16 @@ class LCANet():
     if tensorboard_logs is not None:
       tb = tf.keras.callbacks.TensorBoard(os.path.join(tensorboard_logs, datetime.datetime.now().strftime("%Y%m%d-%H%M%S")), histogram_freq=1)
       callback_list.append(tb)
+
+    if checkpoint_path is not None:
+      model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_path,
+        save_weights_only=False,
+        monitor='val_loss',
+        mode='min',
+        save_best_only=True
+      )
+      callback_list.append(model_checkpoint_callback)
 
     self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)
 
