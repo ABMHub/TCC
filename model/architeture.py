@@ -134,8 +134,8 @@ class LCANet():
 
     gru_output1, gru_output2 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True), None)(model)
 
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Attention())([gru_output1, gru_output2])
-    # model = tf.keras.layers.MultiHeadAttention(75, 28)(gru_output1, gru_output2)
+    # model = tf.keras.layers.TimeDistributed(tf.keras.layers.Attention())([gru_output1, gru_output2])
+    model = tf.keras.layers.MultiHeadAttention(75, 28)(gru_output1, gru_output2)
 
     model = tf.keras.layers.GRU(28, return_sequences=True, activation="softmax")(model)
     # model = Activation("softmax")(model)
