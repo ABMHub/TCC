@@ -6,6 +6,8 @@ import os
 import tqdm
 from multiprocessing import Process
 import time
+from preprocessing.get_single_words import slice_video
+from util.video import get_file_path, get_file_name
 
 ffd = dlib.get_frontal_face_detector()
 lmd = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
@@ -49,12 +51,23 @@ def convert_all_videos(path, extension, dest_folder, numpy_file = True, verbose 
       except (IndexError, TypeError, ValueError) as err:
         print(f"Video {orig} com erro\n{err}")
 
+def slice_all_videos(videos_path, alignments_path, extension, dest_folder, dest_extension = "npz", verbose = 1):
+  orig_dest_videos = __get_all_videos(videos_path, extension, dest_folder)
+  # dest_extension = ".npy" if numpy_file else ".avi"
+
+  for orig in tqdm.tqdm(list(orig_dest_videos.keys()), desc="Adquirindo palavras soltas", disable=verbose<=0):
+    if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
+      __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
+      try:
+        slice_video(orig, os.path.join(alignments_path, get_file_name(orig) + ".align"), dest_folder)
+      except (IndexError, TypeError, ValueError) as err:
+        print(f"Video {orig} com erro\n{err}")
+
 def __video_class_wrapper(orig, verbose, path):
   try:
     FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(path)
   except (IndexError, TypeError, ValueError) as err:
     print(f"Video {orig} com erro\n{err}")
-
 
 def convert_all_videos_multiprocess(path, extension, dest_folder, numpy_file = True, verbose = 1, process_count = 6):
   orig_dest_videos = __get_all_videos(path, extension, dest_folder)
@@ -74,12 +87,12 @@ def convert_all_videos_multiprocess(path, extension, dest_folder, numpy_file = T
       if not deleted:
         time.sleep(0.5)
 
+    # provavelmente deveria usar uma pool, mas funciona
     if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
       __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
       p = Process(target=__video_class_wrapper, args=(orig, verbose, orig_dest_videos[orig]))
       p.start()
       processes.append(p)
-      
 
 class FaceVideo:
   def __init__(self, video_path : str, numpy_file : bool = True, verbose = 1):

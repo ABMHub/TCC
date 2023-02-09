@@ -6,7 +6,7 @@ from preprocessing.align_processing import read_file, add_padding, sentence2numb
 RANDOM_SEED = 42
 
 class BatchGenerator(tf.keras.utils.Sequence):
-  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False, mean_and_std : tuple[float, float] = None) -> None:
+  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False, mean_and_std : tuple[float, float] = (112.79750167061542, 69.13403339117579)) -> None:
     super().__init__()
 
     self.video_loader = self.__init_video_loader(data[0][0])

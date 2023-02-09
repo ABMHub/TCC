@@ -15,16 +15,22 @@ def sentence2number(sentence : list[str]) -> alignment:
 
   return char_string[:-1]
 
-def read_file(path : str) -> list[str]:
+def read_file(path : str, get_timestamps : bool = False):
   sentence = []
+  start_time = []
+  stop_time = []
   f = open(path)
   lines = f.readlines() # timestamp timestamp palavra
 
   for line in lines:
-    wrd = line.split()[-1] # palavra
+    start, stop, wrd = line.split() # palavra
     if wrd not in __SILENCE:
+      start_time.append(int(start))
+      stop_time.append(int(stop)) # fazer uma struct
       sentence.append(wrd)
   
+  if get_timestamps:
+    return start_time, stop_time, sentence
   return sentence
 
 def process_folder(path : str):
