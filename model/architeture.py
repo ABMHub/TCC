@@ -1,5 +1,5 @@
 import datetime
-from preprocessing.preprocessing import get_training_data
+from generator.data_loader import get_training_data
 from ctc_decoder import beam_search
 from jiwer import cer, wer
 
@@ -91,7 +91,7 @@ class LCANet():
 
     return ret
 
-  def evaluate_model(self, predictions = None):
+  def evaluate_model(self, predictions = None) -> tuple[float, float]:
     assert self.data is not None
     assert self.data["validation"] is not None
     assert self.data["validation"].strings is not None
