@@ -2,6 +2,7 @@ import math
 import tensorflow as tf
 import numpy as np
 from preprocessing.align_processing import read_file, add_padding, sentence2number
+from util.video import loaders
 
 RANDOM_SEED = 42
 
@@ -58,14 +59,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     return dataset_mean, dataset_std    
 
   def __init_video_loader(self, file):
-    loaders = {
-      "npy": np.load,
-      "npz": lambda path: np.load(path)["arr_0"],
-      # ".avi"
-    }
-    
     extension = file.split(".")[-1]
-
     return loaders[extension] # essa decisao pode ser feita para cada video... mas adiciona o custo de tempo do split para achar a extensao
 
   def __load_y(self, y, preserve_strings : bool = False):

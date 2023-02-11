@@ -1,65 +1,26 @@
 import dlib
 import cv2
 import numpy as np
-from typing import List, Tuple
 import os
 import tqdm
 from multiprocessing import Process
 import time
-from preprocessing.get_single_words import slice_video
-from util.video import get_file_path, get_file_name
+
+from util.video import get_all_videos
+from util.path import create_dir_recursively
 
 ffd = dlib.get_frontal_face_detector()
 lmd = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 
-def __create_dir_recursively(path):
-  while True:
-    try:
-      os.mkdir(path)
-    except FileExistsError:
-      return
-    except FileNotFoundError:
-      __create_dir_recursively("/".join(path.split("/")[:-1]))
-
-def __get_all_videos(path, extension, dest_folder, preserve_folder_structure = False):
-  orig_dest_videos = {}
-  files_in = os.listdir(path)
-  for file in files_in:
-    curr_file_path = os.path.join(path,file)
-    if os.path.isdir(curr_file_path):
-      if preserve_folder_structure:
-        new_dest_folder = os.path.join(dest_folder, file)
-        orig_dest_videos.update(__get_all_videos(curr_file_path, extension, new_dest_folder))
-      else:
-        orig_dest_videos.update(__get_all_videos(curr_file_path, extension, dest_folder))
-
-    if file.endswith(extension):
-      new_video_path = os.path.join(dest_folder, ".".join(file.split(".")[:-1]))
-      orig_dest_videos[curr_file_path] = new_video_path
-
-  return orig_dest_videos
-
 def convert_all_videos(path, extension, dest_folder, numpy_file = True, verbose = 1):
-  orig_dest_videos = __get_all_videos(path, extension, dest_folder)
-  dest_extension = ".npy" if numpy_file else ".avi"
+  orig_dest_videos = get_all_videos(path, extension, dest_folder)
+  dest_extension = ".npz" if numpy_file else ".avi"
 
   for orig in tqdm.tqdm(orig_dest_videos, desc="Convertendo Video", disable=verbose<=0):
     if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
-      __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
+      create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
       try:
         FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(orig_dest_videos[orig])
-      except (IndexError, TypeError, ValueError) as err:
-        print(f"Video {orig} com erro\n{err}")
-
-def slice_all_videos(videos_path, alignments_path, extension, dest_folder, dest_extension = "npz", verbose = 1):
-  orig_dest_videos = __get_all_videos(videos_path, extension, dest_folder)
-  # dest_extension = ".npy" if numpy_file else ".avi"
-
-  for orig in tqdm.tqdm(list(orig_dest_videos.keys()), desc="Adquirindo palavras soltas", disable=verbose<=0):
-    if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
-      __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
-      try:
-        slice_video(orig, os.path.join(alignments_path, get_file_name(orig) + ".align"), dest_folder)
       except (IndexError, TypeError, ValueError) as err:
         print(f"Video {orig} com erro\n{err}")
 
@@ -70,8 +31,8 @@ def __video_class_wrapper(orig, verbose, path):
     print(f"Video {orig} com erro\n{err}")
 
 def convert_all_videos_multiprocess(path, extension, dest_folder, numpy_file = True, verbose = 1, process_count = 6):
-  orig_dest_videos = __get_all_videos(path, extension, dest_folder)
-  dest_extension = ".npy" if numpy_file else ".avi"
+  orig_dest_videos = get_all_videos(path, extension, dest_folder)
+  dest_extension = ".npz" if numpy_file else ".avi"
 
   processes = []
 
@@ -89,7 +50,7 @@ def convert_all_videos_multiprocess(path, extension, dest_folder, numpy_file = T
 
     # provavelmente deveria usar uma pool, mas funciona
     if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
-      __create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
+      create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
       p = Process(target=__video_class_wrapper, args=(orig, verbose, orig_dest_videos[orig]))
       p.start()
       processes.append(p)
@@ -131,7 +92,7 @@ class FaceVideo:
     assert self.mouth_imgs.shape == (75, 50, 100, 3)
 
     if self.numpy_file:
-      np.save(path + ".npy", self.mouth_imgs, allow_pickle=True, fix_imports=False)
+      np.savez(path + ".npz", self.mouth_imgs, allow_pickle=True, fix_imports=False)
 
     else:
       n_video = cv2.VideoWriter(path + ".avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, (100, 50))
@@ -146,7 +107,7 @@ class FaceFrame:
     self.face_coords = self.get_face()
     self.mouths, self.mouths_center = self.get_mouth_coords()
 
-  def get_face(self) -> List[Tuple[Tuple[int]]]:
+  def get_face(self) -> list[tuple[tuple[int]]]:
     if len(self.faces) != 1:
       raise ValueError()
 

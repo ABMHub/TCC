@@ -1,5 +1,8 @@
+import os
 import argparse
 from model.architeture import LCANet
+from preprocessing.mouth_extraction import convert_all_videos_multiprocess
+from preprocessing.single_words import slice_all_videos_multiprocess
 
 def main():
   ap = argparse.ArgumentParser(
@@ -33,11 +36,10 @@ def main():
 
   preprocess.add_argument("dataset_path", help="Caminho para os vídeos crus. Caso a extração de bocas seja ignorada, é o caminho para os vídeos das bocas em .npz.")
   preprocess.add_argument("results_folder", help="Caminho para a pasta onde o dataset processado estará. Será criada a pasta npz_mouths e single_words")
+  preprocess.add_argument("-ss", "--single_words", required=False, help="Path para a pasta de alignments. Habilita extração de palavras soltas.")
   preprocess.add_argument("-sm", "--skip_mouths", required=False, action="store_true", help="Opção para pular a extração de bocas.")
-  preprocess.add_argument("-ss", "--skip_single_mouths", required=False, action="store_true", help="Opção para pular a geração de palavras soltas.")
 
   args = vars(ap.parse_args())
-  # print(args)
 
   mode = args["mode"]
 
@@ -54,7 +56,19 @@ def main():
       print(f"CER: {cer}\nWER: {wer}")
 
   elif mode == "preprocess":
-    pass
+    raw_video_path = args["dataset_path"]
+    mouths_path = os.path.join(args["results_folder"], "npz_mouths")
+    single_words_path = os.path.join(args["results_folder"], "single_words")
+    alignments_path = args["single_words"]
+
+    if not args["skip_mouths"]:
+      convert_all_videos_multiprocess(raw_video_path, ".mpg", mouths_path, True)
+
+    else:
+      mouths_path = raw_video_path
+
+    if alignments_path is not None:
+      slice_all_videos_multiprocess(mouths_path, alignments_path, "npz", single_words_path)
 
 if __name__ == '__main__':
 	main()
