@@ -5,12 +5,16 @@ import os
 import tqdm
 from multiprocessing import Process
 import time
+import math
 
 from util.video import get_all_videos
 from util.path import create_dir_recursively
 
 ffd = dlib.get_frontal_face_detector()
 lmd = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
+
+VIDEO_HEIGHT = 720
+VIDEO_WIDTH  = 576
 
 def convert_all_videos(path, extension, dest_folder, numpy_file = True, verbose = 1):
   orig_dest_videos = get_all_videos(path, extension, dest_folder)
@@ -21,13 +25,13 @@ def convert_all_videos(path, extension, dest_folder, numpy_file = True, verbose 
       create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
       try:
         FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(orig_dest_videos[orig])
-      except (IndexError, TypeError, ValueError) as err:
+      except (IndexError, TypeError, AssertionError) as err:
         print(f"Video {orig} com erro\n{err}")
 
 def __video_class_wrapper(orig, verbose, path):
   try:
     FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(path)
-  except (IndexError, TypeError, ValueError) as err:
+  except (IndexError, TypeError, AssertionError) as err:
     print(f"Video {orig} com erro\n{err}")
 
 def convert_all_videos_multiprocess(path, extension, dest_folder, numpy_file = True, verbose = 1, process_count = 6):
@@ -72,15 +76,30 @@ class FaceVideo:
       pbar.update()
     pbar.close()
 
-  def get_mouth_video(self, path):
-    dest_img = self.frames[0]
-    self.dest = np.float32([
-        dest_img.face_coords[0][0],
-        [dest_img.face_coords[0][1][0], dest_img.face_coords[0][0][1]],
-        dest_img.mouths_center[0]
-      ])
+  def __get_dest_points(self, img_obj):
+    r_eye = img_obj.r_eye
+    l_eye = img_obj.l_eye
+    mouth = img_obj.mouth
 
-    self.frames = [FaceFrame(frame_obj.transform(self.dest)) for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0)] 
+    mid_eyes = np.mean([r_eye[0], l_eye[0]]), np.mean([r_eye[1], l_eye[1]])
+    eyes_dist = math.dist(r_eye, l_eye)
+    mouth_mid_eyes_dist = math.dist(mid_eyes, mouth)
+
+    new_mid_eyes = (mouth[0], mouth[1] - mouth_mid_eyes_dist)
+    new_l_eye = (new_mid_eyes[0] - eyes_dist/2, new_mid_eyes[1])
+    new_r_eye = (new_mid_eyes[0] + eyes_dist/2, new_mid_eyes[1])
+
+    return np.array([
+      new_l_eye,
+      new_r_eye,
+      mouth,
+    ], dtype=np.float32)
+
+  def get_mouth_video(self, path):
+    example_img = self.frames[0]
+    dest = self.__get_dest_points(example_img)
+
+    self.frames = [FaceFrame(frame_obj.transform(dest)) for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0)] 
 
     # n_video = cv2.VideoWriter("./testetcc.avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, tuple(reversed(self.frames[0].img.shape[0:2])))
     # for frame in self.frames:
@@ -92,7 +111,7 @@ class FaceVideo:
     assert self.mouth_imgs.shape == (75, 50, 100, 3)
 
     if self.numpy_file:
-      np.savez(path + ".npz", self.mouth_imgs, allow_pickle=True, fix_imports=False)
+      np.savez(path + ".npz", self.mouth_imgs)
 
     else:
       n_video = cv2.VideoWriter(path + ".avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, (100, 50))
@@ -103,70 +122,52 @@ class FaceVideo:
 class FaceFrame:
   def __init__(self, img : np.ndarray):
     self.img = img
-    self.faces = ffd(img, 0)
-    self.face_coords = self.get_face()
-    self.mouths, self.mouths_center = self.get_mouth_coords()
 
-  def get_face(self) -> list[tuple[tuple[int]]]:
-    if len(self.faces) != 1:
-      raise ValueError()
+    faces = ffd(img, 0)
+    # import random
+    # if len(faces) != 1: cv2.imwrite(f"./test/imtest{int(random.random()*100)}.png", self.img)
+    assert len(faces) == 1, "Mais ou menos de um rosto detectado"
+    self.face = faces[0]
 
-    face_coords = []
+    self.l_eye, self.r_eye, self.mouth = self.get_mouth_coords()
 
-    for face in self.faces:
-      tl, br = face.tl_corner(), face.br_corner()
+  def get_mouth_coords(self) -> tuple[float, float, float]:
+    lm = lmd(self.img, self.face)
+    
+    l_eye  = self.__get_center(lm, 36, 42)
+    r_eye  = self.__get_center(lm, 42, 48)
+    mouth = self.__get_center(lm, 48, 68)
 
-      tlx = max(tl.x, 0)
-      tly = max(tl.y, 0)
-
-      brx = min(br.x, self.img.shape[0])
-      bry = min(br.y, self.img.shape[1])
-
-      face_coords.append(((tlx, tly), (brx, bry)))
-
-    return face_coords
-
-  def get_mouth_coords(self) -> any:
-    mouths_coords = []
-    mouths_center = []
-    for face in self.faces:
-      lm = lmd(self.img, face)
+    return l_eye, r_eye, mouth
       
-      tl_mouth = [1e9, 1e9]
-      br_mouth = [0, 0]
-      x_list = []
-      y_list = []
+  def __get_center(self, lm, start, end):
+    x_list = []
+    y_list = []
 
-      for i in range(48, 60):
-        x, y = lm.part(i).x, lm.part(i).y
-        x_list.append(x)
-        y_list.append(y)
+    for i in range(start, end):
+      x, y = lm.part(i).x, lm.part(i).y
+      x_list.append(x)
+      y_list.append(y)
 
-        tl_mouth[0] = min(tl_mouth[0], x)
-        tl_mouth[1] = min(tl_mouth[1], y)
-        br_mouth[0] = max(br_mouth[0], x)
-        br_mouth[1] = max(br_mouth[1], y)
+    return np.mean(x_list), np.mean(y_list)
 
+  def __get_point(self, lm, number) -> tuple[int, int]:
+    return int(lm.part(number).x), int(lm.part(number).y)
 
-      mouths_coords.append((tl_mouth, br_mouth))
-      mouths_center.append((int(np.mean(x_list)), int(np.mean(y_list))))
-
-    return mouths_coords, mouths_center
-      
   def transform(self, dest):
-    for i in range(len(self.faces)):
-      orig = np.float32([
-        self.face_coords[i][0],
-        [self.face_coords[i][1][0], self.face_coords[i][0][1]],
-        self.mouths_center[0]
-      ])
-      matrix = cv2.getAffineTransform(orig, dest)
-      new_image = cv2.warpAffine(self.img, matrix, tuple(reversed(self.img.shape[0:2])))
+    orig = np.float32([
+      self.l_eye,
+      self.r_eye,
+      self.mouth
+    ])
 
-      return new_image
+    matrix = cv2.getAffineTransform(orig, dest)
+    new_image = cv2.warpAffine(self.img, matrix, tuple(reversed(self.img.shape[0:2])))
+
+    return new_image
 
   def get_mouth_img(self):
-    m = self.mouths[0]
-    return self.img[m[0][1]:m[1][1], m[0][0]:m[1][0]]
+    m = [int(i) for i in self.mouth]
+    return self.img[m[1]-35:m[1]+35, m[0]-70:m[0]+70]
 
 # convert_all_videos("./", "mov", "./results", verbose=1)
