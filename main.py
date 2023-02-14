@@ -1,8 +1,4 @@
-import os
 import argparse
-from model.architeture import LCANet
-from preprocessing.mouth_extraction import convert_all_videos_multiprocess
-from preprocessing.single_words import slice_all_videos_multiprocess
 
 def main():
   ap = argparse.ArgumentParser(
@@ -24,6 +20,7 @@ def main():
   train.add_argument("-l", "--logs_folder", required=False, help="Opção para salvar logs do tensorboard. Caminho para a pasta de logs.")
 
   train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER" e "WER"')
+  train.add_argument("-c", "--calc_standardization", required=False, action="store_true", default=False, help='Opção para re-calcular a media e o desvio padrão do dataset, ao invés de usar os valores default.')
 
   test = subparsers.add_parser("test")
 
@@ -31,6 +28,8 @@ def main():
   test.add_argument("alignment_path", help="Caminho para a pasta com todos os alinhamentos.")
   test.add_argument("trained_model_path", help="Caminho para o modelo treinado.")
   test.add_argument("batch_size", help='Tamanho de cada batch para o teste.', type=int)
+
+  test.add_argument("-c", "--calc_standardization", required=False, action="store_true", default=False, help='Opção para re-calcular a media e o desvio padrão do dataset, ao invés de usar os valores default.')
 
   preprocess = subparsers.add_parser("preprocess")
 
@@ -44,8 +43,17 @@ def main():
   mode = args["mode"]
 
   if mode == "train" or mode == "test":
+    from model.architeture import LCANet
+
     model = LCANet(args["trained_model_path"])
-    model.load_data(args["dataset_path"], args["alignment_path"], batch_size = args["batch_size"], validation_slice = 0.2, validation_only=(mode == "test"))
+    model.load_data(
+      x_path = args["dataset_path"],
+      y_path = args["alignment_path"], 
+      batch_size = args["batch_size"],
+      validation_slice = 0.2,
+      validation_only=(mode == "test"),
+      recalc_standardization = args["calc_standardization"]
+    )
 
     if mode == "train":
       model.fit(args["epochs"], args["logs_folder"], args["save_model_path"] + "_best")
@@ -56,6 +64,10 @@ def main():
       print(f"CER: {cer}\nWER: {wer}")
 
   elif mode == "preprocess":
+    from preprocessing.mouth_extraction import convert_all_videos_multiprocess
+    from preprocessing.single_words import slice_all_videos_multiprocess
+    import os
+
     raw_video_path = args["dataset_path"]
     mouths_path = os.path.join(args["results_folder"], "npz_mouths")
     single_words_path = os.path.join(args["results_folder"], "single_words")

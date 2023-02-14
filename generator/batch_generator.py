@@ -3,11 +3,12 @@ import tensorflow as tf
 import numpy as np
 from preprocessing.align_processing import read_file, add_padding, sentence2number
 from util.video import loaders
+import tqdm
 
 RANDOM_SEED = 42
 
 class BatchGenerator(tf.keras.utils.Sequence):
-  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False, mean_and_std : tuple[float, float] = (112.79750167061542, 69.13403339117579)) -> None:
+  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False, mean_and_std : tuple[float, float] = None) -> None:
     super().__init__()
 
     self.video_loader = self.__init_video_loader(data[0][0])
@@ -43,10 +44,12 @@ class BatchGenerator(tf.keras.utils.Sequence):
       self.mean, self.std_var = mean_and_std
 
   def __get_std_params(self): # devo eu fazer a standatization com os dados de augmentation tbm?
+    pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=self.generator_steps*2, disable=False)
     batch_mean = []
     for i in range(self.generator_steps):
       data = self.__getitem__(i)
       batch_mean.append(np.mean(data[0]))
+      pbar.update()
 
     dataset_mean = np.mean(batch_mean) # a media nao esta exata. o ultimo batch eh menor
     dataset_std = 0
@@ -54,7 +57,12 @@ class BatchGenerator(tf.keras.utils.Sequence):
     for i in range(self.generator_steps): # encontrar algum jeito de calcular 
       data = self.__getitem__(i)
       dataset_std += np.sum(np.square(data[0] - dataset_mean))
+      pbar.update()
+
     dataset_std = math.sqrt(dataset_std/(self.data_number*75*50*100*3))
+    pbar.close()
+
+    print(f"Média: {dataset_mean}\nDesvio Padrão: {dataset_std}")
 
     return dataset_mean, dataset_std    
 
