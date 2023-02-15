@@ -15,7 +15,6 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
     self.batch_size = batch_size
     self.data_number = len(data[0])
-    self.generator_steps = int(np.ceil(self.data_number / self.batch_size))
     self.augmentation = augmentation
 
     if augmentation:
@@ -24,7 +23,8 @@ class BatchGenerator(tf.keras.utils.Sequence):
       np.random.shuffle(aug_x)
 
       self.batch_size = int(self.batch_size / 2)
-      self.generator_steps *= 2
+
+    self.generator_steps = int(np.ceil(self.data_number / self.batch_size))
 
     y_dict = self.__load_y(data[1], preserve_strings=preserve_strings) # validation_only deve impedir que essa funcao seja executada
 
