@@ -9,6 +9,7 @@ RANDOM_SEED = 42
 
 class BatchGenerator(tf.keras.utils.Sequence):
   def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False, mean_and_std : tuple[float, float] = None) -> None:
+    assert batch_size > 1 or augmentation is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
     super().__init__()
 
     self.video_loader = self.__init_video_loader(data[0][0])
