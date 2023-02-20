@@ -2,10 +2,14 @@ import datetime
 from generator.data_loader import get_training_data
 from ctc_decoder import beam_search
 from jiwer import cer, wer
+from multiprocessing import Pool
+
+import absl.logging
 
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+absl.logging.set_verbosity(absl.logging.ERROR)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 
 import tqdm
@@ -34,7 +38,7 @@ class LCANet():
   def save_model(self, path : str):
     self.model.save(path)
 
-  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_slice : float = 0.2, validation_only = False):
+  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_slice : float = 0.2, validation_only = False, curriculum_steps = None):
     """Carrega dados e geradores no objeto LCANet.
     As seeds dos geradores são fixas.
 
@@ -45,7 +49,7 @@ class LCANet():
         validation_slice (float, optional): porcentagem de dados separados para validação. Defaults to 0.2.
         validation_only (bool, optional): _description_. Defaults to False.
     """
-    self.data = get_training_data(x_path, y_path, batch_size = batch_size, val_size = validation_slice, validation_only = validation_only)
+    self.data = get_training_data(x_path, y_path, batch_size = batch_size, val_size = validation_slice, validation_only = validation_only, curriculum_steps=curriculum_steps)
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None) -> None:
     """Realiza o treinamento do modelo.
@@ -71,7 +75,7 @@ class LCANet():
       )
       callback_list.append(model_checkpoint_callback)
 
-    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)
+    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, verbose=2)
 
   def predict(self) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
@@ -81,25 +85,26 @@ class LCANet():
         list[str]: Lista de predições contendo todas as predições em cima do dataset de validação
     """
     assert self.data is not None
-    vocab = "".join([chr(x) for x in range(97, 123)]) + " "
+    
 
     print("Realizando predições...")
     raw_pred = self.model.predict(self.data["validation"])
     ret = []
-    for pred in tqdm.tqdm(raw_pred, "Convertendo predições para strings"):
-      ret.append(beam_search(pred, vocab))
+
+    pool = Pool(processes=8)
+    for res in tqdm.tqdm(pool.imap_unordered(beam_wrapper, raw_pred), "Convertendo predições para strings", total=len(raw_pred)):
+      ret.append(res)
 
     return ret
 
   def evaluate_model(self, predictions = None) -> tuple[float, float]:
     assert self.data is not None
     assert self.data["validation"] is not None
-    assert self.data["validation"].strings is not None
 
     if predictions is None:
       predictions = self.predict()
 
-    true = [" ".join(x) for x in self.data["validation"].strings]
+    true = self.data["validation"].get_strings()
 
     return cer(true, predictions), wer(true, predictions)
 
@@ -147,3 +152,6 @@ class LCANet():
 
   def __compile_model(self, model : tf.keras.Model):
     model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
+
+def beam_wrapper(pred):
+  return beam_search(pred, 'abcdefghijklmnopqrstuvwxyz ', beam_width = 200)

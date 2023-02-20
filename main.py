@@ -49,6 +49,7 @@ def main():
       batch_size = args["batch_size"],
       validation_slice = 0.2,
       validation_only=(mode == "test"),
+      curriculum_steps = (1, 2)
     )
 
     if mode == "train":

@@ -1,49 +1,56 @@
 import os
 from typing import List
+import math
 
-__SILENCE = ["sil"]
+SILENCE = ["sil"]
 
-alignment = list[int]
+class Align:
+  def __init__(self, align_path : str):
+    ret = self.read_file(align_path)
 
-def sentence2number(sentence : list[str]) -> alignment:
-  char_string = []
-  for wrd in sentence:
-    for char in wrd:
-      if ord("a") <= ord(char) <= ord('z'):
-        char_string.append((ord(char) - ord('a'))) # converte letra a letra para numero
-    char_string.append(26)
+    self.start    : list[int] = [math.floor(elem/1000) for elem in ret[0]]
+    self.stop     : list[int] = [math.ceil(elem/1000) for elem in ret[1]]
+    self.sentence : list[str] = ret[2]
 
-  return char_string[:-1]
+    self.length = len(self.start)
 
-def read_file(path : str, get_timestamps : bool = False):
-  sentence = []
-  start_time = []
-  stop_time = []
-  f = open(path)
-  lines = f.readlines() # timestamp timestamp palavra
+    self.number_string : list[int] = self.sentence2number(self.sentence)
 
-  for line in lines:
-    start, stop, wrd = line.split() # palavra
-    if wrd not in __SILENCE:
-      start_time.append(int(start))
-      stop_time.append(int(stop)) # fazer uma struct
-      sentence.append(wrd)
-  
-  if get_timestamps:
+  def __len__(self):
+    return self.length
+
+  def __getitem__(self, index):
+    assert index >= 0 and index < self.length, f"Align index {index} is out of range"
+    return self.start[index], self.stop[index], self.sentence[index]
+
+  @staticmethod
+  def sentence2number(sentence : list[str]) -> list[int]:
+    char_string = []
+    for wrd in sentence:
+      for char in wrd:
+        if ord("a") <= ord(char) <= ord('z'):
+          char_string.append((ord(char) - ord('a'))) # converte letra a letra para numero
+      char_string.append(26)
+
+    return char_string[:-1]
+
+  @staticmethod
+  def read_file(file_path) -> tuple:
+    sentence = []
+    start_time = []
+    stop_time = []
+    f = open(file_path)
+    lines = f.readlines() # timestamp timestamp palavra
+
+    for line in lines:
+      start, stop, wrd = line.split() # palavra
+      if wrd not in SILENCE:
+        start_time.append(int(start))
+        stop_time.append(int(stop)) # fazer uma struct
+        sentence.append(wrd)
+
     return start_time, stop_time, sentence
-  return sentence
 
-def process_folder(path : str):
-  d = dict()
-  list_dir = os.listdir(path)
-
-  for file in list_dir:
-    if file.endswith(".align"):
-      d[file] = sentence2number(read_file(os.path.join(path, file)))
-      
-  return d
-
-def add_padding(char_string : List[int], expected_size : int):
-  return char_string + [-2] + [-1]*((expected_size) - len(char_string))
-    
-          
+  @staticmethod
+  def add_padding(char_string : List[int], expected_size : int):
+    return char_string + [-2] + [-1]*((expected_size) - len(char_string))

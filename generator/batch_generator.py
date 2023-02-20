@@ -1,41 +1,43 @@
 import math
 import tensorflow as tf
 import numpy as np
-from preprocessing.align_processing import read_file, add_padding, sentence2number
+from preprocessing.align_processing import Align
 from util.video import loaders
 import tqdm
 
 RANDOM_SEED = 42
 
 class BatchGenerator(tf.keras.utils.Sequence):
-  def __init__(self, data : tuple, batch_size : int, augmentation : bool = False, preserve_strings : bool = False, mean_and_std : tuple[float, float] = None) -> None:
-    assert batch_size > 1 or augmentation is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
+  def __init__(self, data : tuple, batch_size : int, training : bool, curriculum_steps : tuple[int, int] = None, mean_and_std : tuple[float, float] = None) -> None:
+    assert batch_size > 1 or training is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
+    assert training is False or curriculum_steps is not None, "É preciso passar as etapas do treinamento por curriculo no treinamento."
     super().__init__()
 
-    self.video_loader = self.__init_video_loader(data[0][0])
+    self.video_paths = data[0]
+
+    self.epoch = 0
+    self.training_mode = 0
+    self.curriculum_steps = curriculum_steps
+    self.video_loader = self.__init_video_loader(self.video_paths[0])
 
     self.batch_size = batch_size
-    self.data_number = len(data[0])
-    self.augmentation = augmentation
+    self.training = training
 
-    if augmentation:
-      aug_x = np.copy(data[0])
+    self.aligns = [Align(elem) for elem in tqdm.tqdm(data[1], desc=f"{'Treinamento' if self.training else 'Validação'}: carregando os alinhamentos")]
+    self.data = []
+
+    if training:
+      for i in range(len(self.video_paths)):
+        self.data.append((self.video_paths[i], self.aligns[i].number_string, False))
+        self.data.append((self.video_paths[i], self.aligns[i].number_string, True))
       np.random.seed(RANDOM_SEED)
-      np.random.shuffle(aug_x)
+      np.random.shuffle(self.data)
 
-      self.batch_size = int(self.batch_size / 2)
+    else:
+      for i in range(len(self.video_paths)):
+        self.data.append((self.video_paths[i], self.aligns[i].number_string))
 
-    self.generator_steps = int(np.ceil(self.data_number / self.batch_size))
-
-    y_dict = self.__load_y(data[1], preserve_strings=preserve_strings) # validation_only deve impedir que essa funcao seja executada
-
-    self.strings = y_dict["strings"]
-
-    self.data = list(zip(data[0], y_dict["regular"]))
-
-    self.aug_data = None
-    if augmentation:
-      self.aug_data = list(zip(aug_x, y_dict["augmentation"]))
+    self.generator_steps = int(np.ceil(len(self.data) / self.batch_size))
 
     if mean_and_std is None:
       self.mean, self.std_var = 0, 1
@@ -44,23 +46,46 @@ class BatchGenerator(tf.keras.utils.Sequence):
     else:
       self.mean, self.std_var = mean_and_std
 
-  def __get_std_params(self): # devo eu fazer a standatization com os dados de augmentation tbm?
-    pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=self.generator_steps*2, disable=False)
-    batch_mean = []
-    for i in range(self.generator_steps):
-      data = self.__getitem__(i)
-      batch_mean.append(np.mean(data[0]))
+  def get_strings(self):
+    return [" ".join(elem.sentence) for elem in self.aligns]
+
+  def on_epoch_end(self):
+    if self.training is False: return
+    self.epoch += 1
+
+    if self.epoch == self.curriculum_steps[0]:
+      self.data = []
+      for i in range(len(self.video_paths)):
+        for j in range(len(self.aligns[i])):
+          self.data.append((self.video_paths[i], self.aligns[i][j]))
+
+      self.generator_steps = int(np.ceil(len(self.data) / self.batch_size))
+      np.random.seed(RANDOM_SEED)
+      np.random.shuffle(self.data)
+
+      self.training_mode = 1
+
+    elif self.epoch == self.curriculum_steps[1]:
+      pass
+      # self.training_mode = 2
+
+  def __get_std_params(self): # standardizacao deve ser por canal de cor
+    pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
+    videos_mean = []
+    for i in range(len(self.video_paths)):
+      data = self.video_loader(self.video_paths[i])
+      videos_mean.append(np.mean(data))
       pbar.update()
 
-    dataset_mean = np.mean(batch_mean) # a media nao esta exata. o ultimo batch eh menor
+    dataset_mean = np.mean(videos_mean) # a media nao esta exata. o ultimo batch eh menor
     dataset_std = 0
 
-    for i in range(self.generator_steps): # encontrar algum jeito de calcular 
-      data = self.__getitem__(i)
-      dataset_std += np.sum(np.square(data[0] - dataset_mean))
+    for i in range(len(self.video_paths)):
+      data = self.video_loader(self.video_paths[i])
+      dataset_std += np.sum(np.square(data - dataset_mean))
       pbar.update()
 
-    dataset_std = math.sqrt(dataset_std/(self.data_number*75*50*100*3))
+    dataset_std = math.sqrt(dataset_std/(len(self.video_paths)*75*50*100*3))
     pbar.close()
 
     print(f"Média: {dataset_mean}\nDesvio Padrão: {dataset_std}")
@@ -71,55 +96,65 @@ class BatchGenerator(tf.keras.utils.Sequence):
     extension = file.split(".")[-1]
     return loaders[extension] # essa decisao pode ser feita para cada video... mas adiciona o custo de tempo do split para achar a extensao
 
-  def __load_y(self, y, preserve_strings : bool = False):
-    print("Carregando alinhamentos...")
-    read_y = [read_file(elem) for elem in y]
-    processed_y = [sentence2number(elem) for elem in read_y]
-
-    read_y = read_y if preserve_strings else None
-
-    aug_y = None
-
-    if self.augmentation:
-      aug_y = np.copy(processed_y)
-      np.random.seed(RANDOM_SEED)
-      np.random.shuffle(aug_y)
-
-    return {"regular": processed_y, "augmentation": aug_y, "strings": read_y}
-
-  def __len__(self) -> int:
-    return self.generator_steps
-
   def __get_split_tuple(self, index : int):
     split_start = index * self.batch_size
     split_end   = split_start + self.batch_size
 
-    if split_end > self.data_number:
-      split_end = self.data_number
+    if split_end > len(self.data):
+      split_end = len(self.data)
 
     return split_start, split_end
+
+  def __len__(self) -> int:
+    return self.generator_steps
+
+  def __process_videos(self, videos):
+    x, y = [], []
+    max_y_size = 0
+    if not self.training:
+      for elem in videos:
+        x.append(self.video_loader(elem[0]))
+        y.append(elem[1])
+        max_y_size = max(max_y_size, len(y[-1]))
+      
+      x = (np.array(x) - self.mean)/self.std_var
+      y = np.array([Align.add_padding(elem, max_y_size) for elem in y]) #adicionar padding na definicao do dataset
+
+    else:
+      if self.training_mode == 0:
+        for elem in videos:
+          npy_video = self.video_loader(elem[0])
+          x.append(np.flip(npy_video, axis=2) if elem[2] is True else npy_video)
+          y.append(elem[1])
+          max_y_size = max(max_y_size, len(y[-1]))
+
+        x = (np.array(x) - self.mean)/self.std_var
+        y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
+
+      elif self.training_mode == 1:
+        for elem in videos:
+          npy_video = self.video_loader(elem[0])
+          npy_video = npy_video[elem[1][0]:elem[1][1]+1]
+          npy_video = (npy_video - self.mean)/self.std_var
+
+          pad_size = 75 - npy_video.shape[0]
+          npy_video = np.pad(npy_video, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+
+          x.append(npy_video)
+          y.append(Align.sentence2number(elem[1][2]))
+          max_y_size = max(max_y_size, len(y[-1]))
+
+        x = np.array(x)
+        y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
+
+      elif self.training_mode == 2:
+        pass    
+
+    return x, y
 
   def __getitem__(self, index : int):
     split = self.__get_split_tuple(index)
 
     batch_videos = self.data[split[0]:split[1]]
 
-    x, y = [], []
-
-    max_y_size = 0
-    for elem in batch_videos:
-      x.append(self.video_loader(elem[0]))
-      y.append(elem[1])
-      max_y_size = max(max_y_size, len(y[-1]))
-      
-    if self.augmentation:
-      augment_batch = self.aug_data[split[0]:split[1]]
-
-      for elem in augment_batch:
-        x.append(np.flip(self.video_loader(elem[0]), axis=2))
-        y.append(elem[1])
-        max_y_size = max(max_y_size, len(y[-1]))
-
-    y = [add_padding(elem, max_y_size) for elem in y]    
-
-    return (np.array(x) - self.mean)/self.std_var, np.array(y) # necessario retirar o /255 e substituir por uma standalizacao
+    return self.__process_videos(batch_videos)
