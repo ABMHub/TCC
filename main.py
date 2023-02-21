@@ -14,7 +14,9 @@ def main():
   train.add_argument("alignment_path", help="Caminho para a pasta com todos os alinhamentos.")
   train.add_argument("save_model_path", help="Caminho e nome do arquivo para salvar o modelo.")
   train.add_argument("batch_size", help='Tamanho de cada batch para o treinamento.', type=int)
-  train.add_argument("epochs", help='Número de épocas para o treinamento.', type=int)
+  train.add_argument("regular_epochs", help='Número de épocas para o treinamento regular.', type=int)
+  train.add_argument("single_words_epochs", help='Número de épocas para o treinamento com palavras soltas.', type=int)
+  train.add_argument("jitter_epochs", help='Número de épocas para o treinamento com travamento de video.', type=int)
 
   train.add_argument("-m", "--trained_model_path", required=False, help="Opção para continuar treinamento prévio. Caminho para o modelo previamente treinado.")
   train.add_argument("-l", "--logs_folder", required=False, help="Opção para salvar logs do tensorboard. Caminho para a pasta de logs.")
@@ -48,12 +50,16 @@ def main():
       y_path = args["alignment_path"], 
       batch_size = args["batch_size"],
       validation_slice = 0.2,
-      validation_only=(mode == "test"),
-      curriculum_steps = (1, 2)
+      validation_only = (mode == "test"),
+      curriculum_steps = (args["regular_epochs"], args["regular_epochs"] + args["single_words_epochs"])
     )
 
     if mode == "train":
-      model.fit(args["epochs"], args["logs_folder"], args["save_model_path"] + "_best")
+      model.fit(
+        epochs = args["regular_epochs"] + args["single_words_epochs"] + args["jitter_epochs"],
+        tensorboard_logs = args["logs_folder"],
+        checkpoint_path = args["save_model_path"] + "_best"
+      )
       model.save_model(args["save_model_path"])
 
     if mode == "test" or not args["skip_evaluation"]:

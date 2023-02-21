@@ -4,6 +4,7 @@ import numpy as np
 from preprocessing.align_processing import Align
 from util.video import loaders
 import tqdm
+import random
 
 RANDOM_SEED = 42
 
@@ -15,7 +16,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
     self.video_paths = data[0]
 
-    self.epoch = 0
+    self.epoch = -1
     self.training_mode = 0
     self.curriculum_steps = curriculum_steps
     self.video_loader = self.__init_video_loader(self.video_paths[0])
@@ -46,6 +47,8 @@ class BatchGenerator(tf.keras.utils.Sequence):
     else:
       self.mean, self.std_var = mean_and_std
 
+    self.on_epoch_end()
+
   def get_strings(self):
     return [" ".join(elem.sentence) for elem in self.aligns]
 
@@ -66,8 +69,37 @@ class BatchGenerator(tf.keras.utils.Sequence):
       self.training_mode = 1
 
     elif self.epoch == self.curriculum_steps[1]:
-      pass
-      # self.training_mode = 2
+      self.data = []
+      random.seed(RANDOM_SEED)
+      for i in range(len(self.video_paths)):
+        frames = list(range(75))
+        j = 0
+
+        while j < 75:
+          rand_num = random.random()
+          if rand_num < 0.025:
+            frames.insert(j, frames[j])
+            j += 1
+          elif rand_num >= 0.975:
+            del frames[j]
+            j -= 1
+          j += 1
+
+        extra_frames = len(frames) - 75
+        if extra_frames > 0:
+          for i in range(extra_frames):
+            choice = random.choice(range(len(frames)))
+            del frames[choice]
+            
+        if extra_frames < 0:
+          for i in range(extra_frames):
+            choice = random.choice(range(len(frames)))
+            frames.insert(choice, frames[choice])
+
+        self.data.append((self.video_paths[i], self.aligns[i].number_string, frames))
+
+      self.generator_steps = int(np.ceil(len(self.data) / self.batch_size))
+      self.training_mode = 2
 
   def __get_std_params(self): # standardizacao deve ser por canal de cor
     pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
@@ -118,7 +150,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
         max_y_size = max(max_y_size, len(y[-1]))
       
       x = (np.array(x) - self.mean)/self.std_var
-      y = np.array([Align.add_padding(elem, max_y_size) for elem in y]) #adicionar padding na definicao do dataset
+      y = np.array([Align.add_padding(elem, max_y_size) for elem in y]) # adicionar padding no y no carregamento dos aligns
 
     else:
       if self.training_mode == 0:
@@ -148,7 +180,17 @@ class BatchGenerator(tf.keras.utils.Sequence):
         y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
 
       elif self.training_mode == 2:
-        pass    
+        for elem in videos:
+          npy_video = self.video_loader(elem[0])
+          npy_video = npy_video[elem[2]]
+          npy_video = (npy_video - self.mean)/self.std_var
+
+          x.append(npy_video)
+          y.append(elem[1])
+          max_y_size = max(max_y_size, len(y[-1]))
+
+        x = np.array(x)
+        y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
 
     return x, y
 
