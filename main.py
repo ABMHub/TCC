@@ -1,4 +1,5 @@
 import argparse
+import os
 
 def main():
   ap = argparse.ArgumentParser(
@@ -20,8 +21,8 @@ def main():
 
   train.add_argument("-m", "--trained_model_path", required=False, help="Opção para continuar treinamento prévio. Caminho para o modelo previamente treinado.")
   train.add_argument("-l", "--logs_folder", required=False, help="Opção para salvar logs do tensorboard. Caminho para a pasta de logs.")
-
   train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER" e "WER"')
+  train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
 
   test = subparsers.add_parser("test")
 
@@ -43,6 +44,9 @@ def main():
 
   if mode == "train" or mode == "test":
     from model.architeture import LCANet
+
+    if args["choose_gpu"] is not None:
+      os.environ["CUDA_VISIBLE_DEVICES"]=f"{args['choose_gpu']}"
 
     model = LCANet(args["trained_model_path"])
     model.load_data(
@@ -69,7 +73,6 @@ def main():
   elif mode == "preprocess":
     from preprocessing.mouth_extraction import convert_all_videos_multiprocess
     from preprocessing.single_words import slice_all_videos_multiprocess
-    import os
 
     raw_video_path = args["dataset_path"]
     mouths_path = os.path.join(args["results_folder"], "npz_mouths")
