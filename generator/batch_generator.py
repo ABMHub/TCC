@@ -93,9 +93,11 @@ class BatchGenerator(tf.keras.utils.Sequence):
             del frames[choice]
             
         if extra_frames < 0:
-          for i in range(extra_frames):
+          for i in range(extra_frames*-1):
             choice = random.choice(range(len(frames)))
             frames.insert(choice, frames[choice])
+
+        assert len(frames) == 75, f"{len(frames)}"
 
         self.data.append((self.video_paths[i], self.aligns[i].number_string, frames))
 
@@ -186,13 +188,12 @@ class BatchGenerator(tf.keras.utils.Sequence):
         for elem in videos:
           npy_video = self.video_loader(elem[0])
           npy_video = npy_video[elem[2]]
-          npy_video = (npy_video - self.mean)/self.std_var
 
           x.append(npy_video)
           y.append(elem[1])
           max_y_size = max(max_y_size, len(y[-1]))
 
-        x = np.array(x)
+        x = (np.array(x) - self.mean)/self.std_var
         y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
 
     return x, y
