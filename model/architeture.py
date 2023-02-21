@@ -15,6 +15,7 @@ import tensorflow as tf
 import tqdm
 
 from model.loss import CTCLoss
+from model.highway_layer import Highway
 
 class LCANet():
   def __init__(self, model_path : str = None):
@@ -75,7 +76,7 @@ class LCANet():
       )
       callback_list.append(model_checkpoint_callback)
 
-    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, verbose=2)
+    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, verbose=1)
 
   def predict(self) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
@@ -132,8 +133,8 @@ class LCANet():
     model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
     model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
-    # model = Highway()(model) # foi removida porque é facil implementar com a api do keras (pesquisar)
-    # model = Highway()(model) # aprender a usar direito, é pra fazer o reshape diretamente nela
+    model = Highway()(model) # foi removida porque é facil implementar com a api do keras (pesquisar)
+    model = Highway()(model) # aprender a usar direito, é pra fazer o reshape diretamente nela
 
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
 
