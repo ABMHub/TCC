@@ -53,7 +53,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     return [" ".join(elem.sentence) for elem in self.aligns]
 
   def on_epoch_end(self):
-    if self.training is False: return
+    if self.training is False or self.curriculum_steps is None: return
     self.epoch += 1
 
     if self.epoch == self.curriculum_steps[0] and self.epoch != self.curriculum_steps[1]:

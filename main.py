@@ -57,7 +57,7 @@ def main():
       batch_size = args["batch_size"],
       validation_slice = 0.2,
       validation_only = (mode == "test"),
-      curriculum_steps = (args["regular_epochs"], args["regular_epochs"] + args["single_words_epochs"])
+      curriculum_steps = None if mode == "test" else (args["regular_epochs"], args["regular_epochs"] + args["single_words_epochs"])
     )
 
     if mode == "train":
