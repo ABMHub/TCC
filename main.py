@@ -31,6 +31,8 @@ def main():
   test.add_argument("trained_model_path", help="Caminho para o modelo treinado.")
   test.add_argument("batch_size", help='Tamanho de cada batch para o teste.', type=int)
 
+  train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
+
   preprocess = subparsers.add_parser("preprocess")
 
   preprocess.add_argument("dataset_path", help="Caminho para os vídeos crus. Caso a extração de bocas seja ignorada, é o caminho para os vídeos das bocas em .npz.")
@@ -71,7 +73,7 @@ def main():
       print(f"\nBEST_MODEL:\nCER: {cer}\nWER: {wer}")
 
       if mode == "train" and not args["skip_evaluation"]:
-        model = LCANet(args["save_model_path"] + "_best")
+        model.load_model(args["save_model_path"] + "_best")
         cer, wer = model.evaluate_model()
         print(f"CER: {cer}\nWER: {wer}")
 
