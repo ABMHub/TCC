@@ -31,7 +31,7 @@ def main():
   test.add_argument("trained_model_path", help="Caminho para o modelo treinado.")
   test.add_argument("batch_size", help='Tamanho de cada batch para o teste.', type=int)
 
-  train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
+  test.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
 
   preprocess = subparsers.add_parser("preprocess")
 
