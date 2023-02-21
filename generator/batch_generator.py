@@ -56,7 +56,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     if self.training is False: return
     self.epoch += 1
 
-    if self.epoch == self.curriculum_steps[0]:
+    if self.epoch == self.curriculum_steps[0] and self.epoch != self.curriculum_steps[1]:
       self.data = []
       for i in range(len(self.video_paths)):
         for j in range(len(self.aligns[i])):
@@ -66,6 +66,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
       np.random.seed(RANDOM_SEED)
       np.random.shuffle(self.data)
 
+      print("Entrando no modo palavras soltas")
       self.training_mode = 1
 
     elif self.epoch == self.curriculum_steps[1]:
@@ -75,7 +76,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
         frames = list(range(75))
         j = 0
 
-        while j < 75:
+        while j < len(frames):
           rand_num = random.random()
           if rand_num < 0.025:
             frames.insert(j, frames[j])
@@ -99,6 +100,8 @@ class BatchGenerator(tf.keras.utils.Sequence):
         self.data.append((self.video_paths[i], self.aligns[i].number_string, frames))
 
       self.generator_steps = int(np.ceil(len(self.data) / self.batch_size))
+
+      print("Entrando no modo jitter")
       self.training_mode = 2
 
   def __get_std_params(self): # standardizacao deve ser por canal de cor
