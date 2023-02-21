@@ -68,7 +68,12 @@ def main():
 
     if mode == "test" or not args["skip_evaluation"]:
       cer, wer = model.evaluate_model()
-      print(f"CER: {cer}\nWER: {wer}")
+      print(f"\nBEST_MODEL:\nCER: {cer}\nWER: {wer}")
+
+      if mode == "train" and not args["skip_evaluation"]:
+        model = LCANet(args["save_model_path"] + "_best")
+        cer, wer = model.evaluate_model()
+        print(f"CER: {cer}\nWER: {wer}")
 
   elif mode == "preprocess":
     from preprocessing.mouth_extraction import convert_all_videos_multiprocess
