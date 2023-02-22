@@ -3,6 +3,7 @@ from generator.data_loader import get_training_data
 from ctc_decoder import beam_search
 from jiwer import cer, wer
 from multiprocessing import Pool
+from keras import backend as K
 
 import absl.logging
 
@@ -28,6 +29,7 @@ class LCANet():
       self.load_model(model_path)
 
   def load_model(self, path : str, inplace = True):
+    K.clear_session()
     model = tf.keras.models.load_model(path, compile=False)
     self.__compile_model(model)
 
@@ -110,6 +112,7 @@ class LCANet():
     return cer(true, predictions), wer(true, predictions)
 
   def __get_model(self):
+    K.clear_session()
     # LCANet
     input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
     model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(input)
