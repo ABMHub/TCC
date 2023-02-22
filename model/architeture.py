@@ -93,7 +93,7 @@ class LCANet():
     ret = []
 
     pool = Pool(processes=8)
-    for res in tqdm.tqdm(pool.imap_unordered(beam_wrapper, raw_pred), "Convertendo predições para strings", total=len(raw_pred)):
+    for res in tqdm.tqdm(pool.imap(beam_wrapper, raw_pred), "Convertendo predições para strings", total=len(raw_pred)):
       ret.append(res)
 
     return ret

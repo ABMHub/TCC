@@ -79,7 +79,7 @@ def get_training_data(videos_path : str, align_path : str, batch_size = 1, val_s
     videos = [[os.path.join(videos_path, elem) for elem in file_set] for file_set in [train_files, val_files]]
     aligns = [[os.path.join(align_path, ".".join(elem.split(".")[:-1]) + ".align") for elem in file_set] for file_set in [train_files, val_files]]  # get align files path list
 
-    train = BatchGenerator((videos[0], aligns[0]), batch_size, training=True, curriculum_steps=curriculum_steps, mean_and_std=None)
+    train = BatchGenerator((videos[0], aligns[0]), batch_size, training=True, curriculum_steps=curriculum_steps if validation_only is False else (-1, -1), mean_and_std=None)
     val = None if val_size is None or val_size == 0 else BatchGenerator((videos[1], aligns[1]), batch_size, training=False, mean_and_std=(train.mean, train.std_var))
 
     DataConfig.save_config(RANDOM_SEED, val_size, train.mean, train.std_var, (videos[0], aligns[0]), (videos[1], aligns[1]), config_file)
