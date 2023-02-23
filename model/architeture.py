@@ -4,6 +4,7 @@ from ctc_decoder import beam_search
 from jiwer import cer, wer
 from multiprocessing import Pool
 from keras import backend as K
+from nltk.translate.bleu_score import corpus_bleu
 
 import absl.logging
 
@@ -108,8 +109,12 @@ class LCANet():
       predictions = self.predict()
 
     true = self.data["validation"].get_strings()
+    return cer(true, predictions), wer(true, predictions), self.__bleu(true, predictions)
 
-    return cer(true, predictions), wer(true, predictions)
+  def __bleu(self, references : list[str], predictions : list[str]):
+    references_p = [[reference.split()] for reference in references]
+    predictions_p = [prediction.split() for prediction in predictions]
+    return corpus_bleu(references_p, predictions_p)
 
   def __get_model(self):
     K.clear_session()

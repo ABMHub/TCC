@@ -69,13 +69,26 @@ def main():
       model.save_model(args["save_model_path"])
 
     if mode == "test" or not args["skip_evaluation"]:
-      cer, wer = model.evaluate_model()
-      print(f"\nBEST_MODEL:\nCER: {cer}\nWER: {wer}")
+      current_model_path = args["save_model_path"] if mode == "train" else args["trained_model_path"]
+
+      cer, wer, bleu = model.evaluate_model()
+      result_string = f"CER: {cer}\nWER: {wer}\nBLEU: {bleu}"
+      print(result_string)
+
+      f = open(os.path.join(current_model_path, "result_metrics.txt"), "w")
+      f.write(result_string)
+      f.close()
 
       if mode == "train" and not args["skip_evaluation"]:
         model.load_model(args["save_model_path"] + "_best")
-        cer, wer = model.evaluate_model()
-        print(f"CER: {cer}\nWER: {wer}")
+        cer, wer, bleu = model.evaluate_model()
+        result_string = f"CER: {cer}\nWER: {wer}\nBLEU: {bleu}"
+
+        f = open(os.path.join(current_model_path + "_best", "result_metrics.txt"), "w")
+        f.write(result_string)
+        f.close()
+
+        print(f"\nBEST_MODEL:\n{result_string}")
 
   elif mode == "preprocess":
     from preprocessing.mouth_extraction import convert_all_videos_multiprocess
