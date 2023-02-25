@@ -21,8 +21,9 @@ def main():
 
   train.add_argument("-m", "--trained_model_path", required=False, help="Opção para continuar treinamento prévio. Caminho para o modelo previamente treinado.")
   train.add_argument("-l", "--logs_folder", required=False, help="Opção para salvar logs do tensorboard. Caminho para a pasta de logs.")
-  train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER" e "WER"')
+  train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER", "WER" e "BLEU"')
   train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
+  train.add_argument("-a", "--architecture", required=False, default = "lcanet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet].")
 
   test = subparsers.add_parser("test")
 
@@ -50,45 +51,50 @@ def main():
     if args["choose_gpu"] is not None:
       os.environ["CUDA_VISIBLE_DEVICES"]=f"{args['choose_gpu']}"
 
-    model = LCANet(args["trained_model_path"])
+    checkpoint_path = None
+    curriculum_steps = None
+    architecture = "lcanet"
+
+    if mode == "train":
+      curriculum_steps = (
+        args["regular_epochs"],
+        args["regular_epochs"] + args["single_words_epochs"]
+      )
+      architecture = args["architecture"].lower()
+      assert architecture in ["lcanet", "lipnet"], f"Arquitetura {architecture} não implementada"
+      
+      checkpoint_path = args["save_model_path"] + "_best"
+
+    model = LCANet(args["trained_model_path"], architecture=architecture)
     model.load_data(
       x_path = args["dataset_path"],
       y_path = args["alignment_path"], 
       batch_size = args["batch_size"],
       validation_slice = 0.2,
       validation_only = (mode == "test"),
-      curriculum_steps = None if mode == "test" else (args["regular_epochs"], args["regular_epochs"] + args["single_words_epochs"])
+      curriculum_steps = curriculum_steps
     )
 
     if mode == "train":
       model.fit(
         epochs = args["regular_epochs"] + args["single_words_epochs"] + args["jitter_epochs"],
         tensorboard_logs = args["logs_folder"],
-        checkpoint_path = args["save_model_path"] + "_best"
+        checkpoint_path = checkpoint_path
       )
       model.save_model(args["save_model_path"])
 
     if mode == "test" or not args["skip_evaluation"]:
       current_model_path = args["save_model_path"] if mode == "train" else args["trained_model_path"]
 
-      cer, wer, bleu = model.evaluate_model()
-      result_string = f"CER: {cer}\nWER: {wer}\nBLEU: {bleu}"
-      print(result_string)
-
-      f = open(os.path.join(current_model_path, "result_metrics.txt"), "w")
-      f.write(result_string)
-      f.close()
+      metrics_path = os.path.join(current_model_path, "result_metrics.txt")
+      model.evaluate_model(save_metrics_file_path = metrics_path)
 
       if mode == "train" and not args["skip_evaluation"]:
-        model.load_model(args["save_model_path"] + "_best")
-        cer, wer, bleu = model.evaluate_model()
-        result_string = f"CER: {cer}\nWER: {wer}\nBLEU: {bleu}"
+        model.load_model(checkpoint_path)
 
-        f = open(os.path.join(current_model_path + "_best", "result_metrics.txt"), "w")
-        f.write(result_string)
-        f.close()
-
-        print(f"\nBEST_MODEL:\n{result_string}")
+        print("Best model:")
+        metrics_path = os.path.join(current_model_path + "_best", "result_metrics.txt")
+        model.evaluate_model(save_metrics_file_path = metrics_path)
 
   elif mode == "preprocess":
     from preprocessing.mouth_extraction import convert_all_videos_multiprocess
