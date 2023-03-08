@@ -13,7 +13,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
 from model.loss import CTCLoss
-from model.highway_layer import Highway
+from model.layers import Highway, CascadedAttention
 from generator.data_loader import get_training_data
 
 class LCANet():
@@ -82,7 +82,7 @@ class LCANet():
       )
       callback_list.append(model_checkpoint_callback)
 
-    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, verbose=1)
+    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, verbose=1)
 
   def predict(self) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
@@ -157,14 +157,15 @@ class LCANet():
 
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
 
-    gru_output = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(model)
 
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Attention())([gru_output, gru_output])
-    #model = tf.keras.layers.TimeDistributed(tf.keras.layers.AdditiveAttention())([gru_output, gru_output])
-    # model = tf.keras.layers.MultiHeadAttention(75, 28)(gru_output1, gru_output2)
+    # model = tf.keras.layers.AdditiveAttention()([model, model2])
+    model = CascadedAttention(28)(model)
+    # model = tf.keras.layers.TimeDistributed(tf.keras.layers.AdditiveAttention())([gru_output, gru_output])
+    # model = tf.keras.layers.MultiHeadAttention(75, 28)(model, model)
 
-    model = tf.keras.layers.GRU(28, return_sequences=True, activation="softmax")(model)
-    # model = Activation("softmax")(model)
+    # model = tf.keras.layers.GRU(28, return_sequences=True, activation="softmax")(model)
+    model = tf.keras.layers.Activation("softmax")(model)
 
     model = tf.keras.Model(input, model)
     self.__compile_model(model)

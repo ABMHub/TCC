@@ -10,7 +10,7 @@ RANDOM_SEED = 42
 
 class BatchGenerator(tf.keras.utils.Sequence):
   def __init__(self, data : tuple, batch_size : int, training : bool, curriculum_steps : tuple[int, int] = None, mean_and_std : tuple[float, float] = None) -> None:
-    assert batch_size > 1 or training is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
+    # assert batch_size > 1 or training is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
     assert training is False or curriculum_steps is not None, "É preciso passar as etapas do treinamento por curriculo no treinamento."
     super().__init__()
 
