@@ -8,8 +8,8 @@ import tqdm
 
 import absl.logging
 import os
-absl.logging.set_verbosity(absl.logging.ERROR)
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+# absl.logging.set_verbosity(absl.logging.ERROR)
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 
 from model.loss import CTCLoss

@@ -56,69 +56,73 @@ class CascadedAttention(tf.keras.layers.Layer):
  
     def build(self, input_shape): # 75x1024
         self.frame_count = input_shape[-2]
+        self.batch_size = input_shape[0]
         # print("input_shape", input_shape)
-        self.Wa=self.add_weight(name='recurrent_attention_weight',      shape=(1, 28), initializer='random_normal', trainable=True)
-        self.Ua=self.add_weight(name='attention_weight',                shape=(1, 1024), initializer='random_normal', trainable=True)
+        self.Wa=self.add_weight(name='recurrent_attention_weight',      shape=(28, 1), initializer='random_normal', trainable=True)
+        self.Ua=self.add_weight(name='attention_weight',                shape=(1024, 1), initializer='random_normal', trainable=True)
         self.Va=self.add_weight(name='score_weight',                    shape=(1, 1), initializer='random_normal', trainable=True)
 
-        self.Wo=self.add_weight(name='embedding_attention_gru_weight',  shape=(28, 28), initializer='random_normal', trainable=True)
-        self.Uo=self.add_weight(name='recurrent_attention_gru_weight',  shape=(28, 1024), initializer='random_normal', trainable=True)
-        self.Co=self.add_weight(name='attention_gru_weight',            shape=(28, 1024), initializer='random_normal', trainable=True)
+        self.Wo=self.add_weight(name='embedding_attention_gru_weight',  shape=(28, 1), initializer='random_normal', trainable=True)
+        self.Uo=self.add_weight(name='recurrent_attention_gru_weight',  shape=(1024, 28), initializer='random_normal', trainable=True)
+        self.Co=self.add_weight(name='attention_gru_weight',            shape=(1024, 28), initializer='random_normal', trainable=True)
+        # self.Emb=self.add_weight(name='attention_gru_weight',            shape=(28, 28), initializer='random_normal', trainable=True)
+        self.Emb = tf.keras.layers.Embedding(28, 28, input_length=28)
+        self.Emb.build(28)
         super(CascadedAttention, self).build(input_shape)
  
     def call(self, x):
-        x = x[0]
-        Yanterior = tf.zeros([28, 1])
-        Hanterior = tf.zeros([1024, 1])
+        batch_size = tf.shape(x)[0]
+        # x = tf.transpose(x, [1, 0, 2])
+        Yanterior = tf.zeros([batch_size, 1, 28])
+        Hanterior = tf.zeros([batch_size, 1, 1024])
         output = []
         for t in range(self.frame_count):
-            # x = vetor de estados da bigru
-            scores = []
-            # scores = tf.zeros([0, ])
-            # prev_score = K.dot(anterior, self.Wa)
-            prev_score = K.dot(self.Wa, Yanterior)
-            for j in range(self.frame_count):
-                score = K.expand_dims(x[j], axis=-1)
-                score = K.dot(self.Ua, score)
-                score = score + prev_score
-                score = K.tanh(score)
-                score = K.dot(self.Va, tf.transpose(score))
-                scores.append(score)
+            Yanterior = CascadedAttentionIteration(batch_size, Yanterior, Hanterior, self.Wa, self.Ua, self.Va, x, self.frame_count, self.Wo, self.Uo, self.Co, self.Emb)
+            Hanterior = K.expand_dims(tf.transpose(x, [1, 0, 2])[t], axis=1)
+            output.append(Yanterior)
 
-            score = None
-            scores = tf.convert_to_tensor(scores, dtype=tf.float32)
-            scores = K.softmax(scores)
+        output = tf.convert_to_tensor(output, dtype=tf.float32)
+        output = tf.squeeze(output, -2)
+        output = tf.transpose(output, [1, 0, 2])
+        return output
+    
+@tf.function
+def CascadedAttentionIteration(batch_size, Yanterior, Hanterior, Wa, Ua, Va, x, frame_count, Wo, Uo, Co, emb):
+    WaS = tf.matmul(Yanterior, Wa)              # [b, 1, 1]
+    UaH = tf.matmul(x, Ua)                      # [b, 75, 1]
+    print("WaS", WaS.shape)
+    print("UaH", UaH.shape)
+    scores = tf.matmul(K.tanh(UaH + WaS), Va)   # [b, 75, 1, 1]
+    
+    scores = K.softmax(scores)                   
+    scores = tf.transpose(scores, [1, 0, 2])                         # [75, b, 1]
+    xtemp = tf.transpose(x, [1, 0, 2])         # [75, b, 1024]
+    print("scores", scores.shape)                       # [b, 75, 1, 1]
+    print("xtemp", xtemp.shape)                       # [b, 75, 1, 1]
 
-            xtemp = K.expand_dims(x, axis=-1)
+    xtemp = tf.expand_dims(xtemp, -1)
+    scores = tf.expand_dims(scores, -1)
 
-            summ = tf.zeros([1024, 1])
-            for j in range(self.frame_count):
-                summ = summ + xtemp[j]*scores[j]
+    summ = tf.zeros([batch_size, 1024, 1])              # [b, 1024, 1]
+    for j in range(frame_count):       
+        summ = summ + (xtemp[j] * scores[j])    # [batch, 1024, 1]
+    print("summ", summ.shape)
 
-            WoE = K.dot(self.Wo, Yanterior)
-            UoH = K.dot(self.Uo, Hanterior)
-            CoC = K.dot(self.Co, summ)
+    c = tf.transpose(summ, [0, 2, 1])   # [batch, 1, 1024]
 
-            y = K.sigmoid(WoE + UoH + CoC)
-            
-            output.append(y)
-            Yanterior = y
-            Hanterior = K.expand_dims(x[t], axis=-1)
+    # emb = tf.keras.layers.Embedding(28, 28)
 
-        return K.expand_dims(tf.squeeze(tf.convert_to_tensor(output, dtype=tf.float32), -1), 0)
+    # emb_in = tf.squeeze(Yanterior, 1)
+    # emb_res = emb(emb_in)
 
+    emb_res = emb(Yanterior)
+    WoE = tf.matmul(emb_res, Wo)
+    UoH = tf.matmul(Hanterior, Uo)
+    CoC = tf.matmul(c, Co)
 
+    WoE = tf.squeeze(WoE, -1)
 
-        # K.dot()
-        # e = K.tanh(K.dot(x,self.Wa)+self.b)
-        # # Remove dimension of size 1
-        # e = K.squeeze(e, axis=-1)   
-        # # Compute the weights
-        # alpha = K.softmax(e)
-        # # Reshape to tensorFlow format
-        # alpha = K.expand_dims(alpha, axis=-1)
-        # # Compute the context vector
-        # context = x * alpha
-        # context = K.sum(context, axis=1)
-        import numpy as np
-        return tf.constant(np.zeros((1, 75, 28)))
+    y = K.sigmoid(WoE + UoH + CoC)
+    print("y", y.shape)
+    
+    return y
