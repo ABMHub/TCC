@@ -57,34 +57,26 @@ class CascadedAttention(tf.keras.layers.Layer):
     def build(self, input_shape): # 75x1024
         self.frame_count = input_shape[-2]
         # print("input_shape", input_shape)
-        self.Wa=self.add_weight(name='recurrent_attention_weight',      shape=(28, 1024), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ua=self.add_weight(name='attention_weight',                shape=(1024, 1024), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Va=self.add_weight(name='score_weight',                    shape=(1024, 1), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-
-        self.Ba1=self.add_weight(name='score_weight',                    shape=(1, 1024), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba2=self.add_weight(name='score_weight',                    shape=(1, 1), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-
-        self.Wo=self.add_weight(name='embedding_attention_gru_weight',  shape=(28, 28), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Uo=self.add_weight(name='recurrent_attention_gru_weight',  shape=(1024, 28), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Co=self.add_weight(name='attention_gru_weight',            shape=(1024, 28), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         
+        self.att = CascadedAttentionCell(28)
+        self.att.build(input_shape)
+
         self.gru = tf.keras.layers.GRUCell(28)
         self.gru.build(1024)
 
         # self.Emb=self.add_weight(name='attention_gru_weight',            shape=(28, 28), initializer='random_normal', trainable=True)
-        self.Emb = tf.keras.layers.Embedding(28, 28, input_length=1)
-        self.Emb.build(28)
+        # self.Emb = tf.keras.layers.Embedding(28, 28, input_length=1)
+        # self.Emb.build(28)
         super(CascadedAttention, self).build(input_shape)
  
     def call(self, x):
         batch_size = tf.shape(x)[0]
         # x = tf.transpose(x, [1, 0, 2])
         Yanterior = tf.expand_dims(self.gru.get_initial_state(batch_size=batch_size, dtype="float32"), 1)
-        Hanterior = tf.zeros([batch_size, 1, 1024])
         output = []
-        for t in range(self.frame_count):
-            Yanterior = CascadedAttentionIteration(batch_size, Yanterior, Hanterior, self.Wa, self.Ua, self.Va, x, self.frame_count, self.Wo, self.Uo, self.Co, self.Emb, self.gru, self.Ba1, self.Ba2)
-            Hanterior = K.expand_dims(tf.transpose(x, [1, 0, 2])[t], axis=1)
+        for _ in range(self.frame_count):
+            context_vector = self.att(x, Yanterior)
+            Yanterior = self.gru(context_vector, Yanterior)[0]
             output.append(Yanterior)
 
         output = tf.convert_to_tensor(output, dtype=tf.float32)
@@ -99,125 +91,34 @@ class CascadedAttention(tf.keras.layers.Layer):
         config['frame_count'] = self.frame_count
         return config
     
-@tf.function
-def CascadedAttentionIteration(batch_size, Yanterior, Hanterior, Wa, Ua, Va, x, frame_count, Wo, Uo, Co, emb, gru : tf.keras.layers.GRUCell, ba1, ba2):
-    print("Yanterior", Yanterior.shape)
-    WaS = tf.matmul(Yanterior, Wa)              # [b, 1, 1]
-    UaH = tf.matmul(x, Ua)                      # [b, 75, 1]
-    print("WaS", WaS.shape)
-    print("UaH", UaH.shape)
-    scores = tf.matmul(K.tanh(UaH + WaS + ba1), Va) + ba2   # [b, 75, 1, 1]
-    scores = K.squeeze(scores, axis=-1)
-    print("scores", scores.shape)
-    sm = K.softmax(scores)                   
-    sm = K.expand_dims(sm, axis=-1)
-    
-    context_vector = K.sum(x * sm, axis=1)
-
-    print("context_vector", context_vector.shape)
-    context_vector = K.expand_dims(context_vector, axis=1)
-
-    # emb = tf.keras.layers.Embedding(28, 28)
-
-    # emb_in = tf.squeeze(Yanterior, 1)
-    # emb_res = emb(emb_in)
-
-    gru_out = gru(context_vector, Yanterior)[0]
-    print("gru_out", gru_out.shape)
-    return gru_out
-
-    # am = K.argmax(Yanterior)
-
-    # emb_res = emb(am)
-    # print("embres", emb_res.shape)
-    # WoE = tf.matmul(emb_res, Wo)
-    # UoH = tf.matmul(Hanterior, Uo)
-    # CoC = tf.matmul(context_vector, Co)
-
-    # print("WoE", WoE.shape)
-    # print("UoH", UoH.shape)
-    # print("CoC", CoC.shape)
-
-
-
-    # y = K.sigmoid(WoE + UoH + CoC)
-    # y = K.softmax(y)
-    print("y", y.shape)
-    
-    return y
 class CascadedAttentionCell(tf.keras.layers.Layer):
-    def __init__(self, output_size, **kwargs):
-        # self.output_size = output_size
-        self.state_size = output_size
+    def __init__(self, vocab_size, **kwargs):
         super(CascadedAttentionCell, self).__init__(**kwargs)
-        # print(kwargs)
-
+        self.vocab_size = vocab_size
+ 
     def build(self, input_shape): # 75x1024
-        self.frame_count = input_shape[-2]
+        feature_count = input_shape[-1]
         # print("input_shape", input_shape)
-        self.Wa=self.add_weight(name='recurrent_attention_weight',      shape=(28, 1024), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ua=self.add_weight(name='attention_weight',                shape=(1024, 1024), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Va=self.add_weight(name='score_weight',                    shape=(1024, 1), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Wa  = self.add_weight(name='recurrent_attention_cell_weight',  shape=(self.vocab_size, feature_count), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ua  = self.add_weight(name='attention_cell_weight',            shape=(feature_count, feature_count),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Va  = self.add_weight(name='attention_cell_score_weight',      shape=(feature_count, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ba1 = self.add_weight(name='attention_cell_bias1',             shape=(1, feature_count),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ba2 = self.add_weight(name='attention_cell_bias2',             shape=(1, feature_count),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ba3 = self.add_weight(name='attention_cell_bias3',             shape=(1, 1),                           initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
-        self.Wo=self.add_weight(name='embedding_attention_gru_weight',  shape=(28, 28), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Uo=self.add_weight(name='recurrent_attention_gru_weight',  shape=(1024, 28), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Co=self.add_weight(name='attention_gru_weight',            shape=(1024, 28), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        # self.Emb=self.add_weight(name='attention_gru_weight',            shape=(28, 28), initializer='random_normal', trainable=True)
-        self.Emb = tf.keras.layers.Embedding(28, 28, input_length=1)
-        self.Emb.build(28)
-        # super(CascadedAttention, self).build(input_shape)
-        self.built = True
+        super(CascadedAttentionCell, self).build(input_shape)
 
-    def call(self, inputs, states, constants, **kwargs):
-        x = constants[0]
-        Yanterior = states[0]
-        Hanterior = inputs
+    def call(self, x, prev_prediction):
+        WaS = tf.matmul(prev_prediction, self.Wa) + self.Ba1
+        UaH = tf.matmul(x, self.Ua) + self.Ba2
 
-        print("inputs", inputs.shape)
-
-        Yanterior = tf.expand_dims(Yanterior, 1)
-        Hanterior = tf.expand_dims(Hanterior, 1)
-
-        print("x", x.shape)
-
-        print(inputs.shape)
-        print(inputs[0].shape)
-        print(inputs[1].shape)
-        WaS = tf.matmul(Yanterior, self.Wa)              # [b, 1, 1]
-        UaH = tf.matmul(x, self.Ua)                      # [b, 75, 1]
-        print("WaS", WaS.shape)
-        print("UaH", UaH.shape)
-        scores = tf.matmul(K.tanh(UaH + WaS), self.Va)   # [b, 75, 1, 1]
+        scores = tf.matmul(K.tanh(UaH + WaS), self.Va) + self.Ba3
         scores = K.squeeze(scores, axis=-1)
-        print("scores", scores.shape)
+
         sm = K.softmax(scores)                   
         sm = K.expand_dims(sm, axis=-1)
         
         context_vector = K.sum(x * sm, axis=1)
 
-        print("context_vector", context_vector.shape)
         context_vector = K.expand_dims(context_vector, axis=1)
-
-        # emb = tf.keras.layers.Embedding(28, 28)
-
-        # emb_in = tf.squeeze(Yanterior, 1)
-        # emb_res = emb(emb_in)
-
-        am = K.argmax(Yanterior)
-
-        emb_res = self.Emb(am)
-        print("embres", emb_res.shape)
-        WoE = tf.matmul(emb_res, self.Wo)
-        UoH = tf.matmul(Hanterior, self.Uo)
-        CoC = tf.matmul(context_vector, self.Co)
-
-        print("WoE", WoE.shape)
-        print("UoH", UoH.shape)
-        print("CoC", CoC.shape)
-
-        y = K.sigmoid(WoE + UoH + CoC)
-        y = tf.squeeze(y, 1)
-        # y = K.softmax(y)
-        print("y", y.shape)
-        
-        return y, [y, inputs]
+        return context_vector
