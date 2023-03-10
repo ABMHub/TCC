@@ -13,7 +13,7 @@ import os
 import tensorflow as tf
 
 from model.loss import CTCLoss
-from model.layers import Highway, CascadedAttention
+from model.layers import Highway, CascadedAttention, CascadedAttentionCell
 from generator.data_loader import get_training_data
 
 class LCANet():
@@ -152,14 +152,18 @@ class LCANet():
     model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
     model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
+    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
     model = Highway()(model) # foi removida porque é facil implementar com a api do keras (pesquisar)
     model = Highway()(model) # aprender a usar direito, é pra fazer o reshape diretamente nela
-
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
 
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(model)
 
     # model = tf.keras.layers.AdditiveAttention()([model, model2])
+    
+    # cell = CascadedAttentionCell(28)
+    # ca = tf.keras.layers.RNN(cell, return_sequences=True)
+    # model = ca(model, constants=model)
+
     model = CascadedAttention(28)(model)
     # model = tf.keras.layers.TimeDistributed(tf.keras.layers.AdditiveAttention())([gru_output, gru_output])
     # model = tf.keras.layers.MultiHeadAttention(75, 28)(model, model)
