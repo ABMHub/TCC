@@ -215,7 +215,7 @@ class LCANet():
     return model
 
   def __compile_model(self, model : tf.keras.Model):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=1e-6), loss=CTCLoss())
+    model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
 
 def beam_wrapper(pred):
   return beam_search(pred, 'abcdefghijklmnopqrstuvwxyz ', beam_width = 200)

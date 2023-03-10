@@ -61,7 +61,7 @@ class CascadedAttention(tf.keras.layers.Layer):
         self.att = CascadedAttentionCell(28)
         self.att.build(input_shape)
 
-        self.gru = tf.keras.layers.GRUCell(28)
+        self.gru = tf.keras.layers.GRUCell(28, activation=None)
         self.gru.build(1024)
 
         # self.Emb=self.add_weight(name='attention_gru_weight',            shape=(28, 28), initializer='random_normal', trainable=True)
@@ -82,7 +82,6 @@ class CascadedAttention(tf.keras.layers.Layer):
         output = tf.convert_to_tensor(output, dtype=tf.float32)
         output = tf.squeeze(output, -2)
         output = tf.transpose(output, [1, 0, 2])
-        print("output", output.shape)
         return output
     
     def get_config(self):
