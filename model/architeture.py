@@ -169,7 +169,7 @@ class LCANet():
     # model = tf.keras.layers.MultiHeadAttention(75, 28)(model, model)
 
     # model = tf.keras.layers.GRU(28, return_sequences=True, activation="softmax")(model)
-    model = tf.keras.layers.Activation("softmax")(model)
+    # model = tf.keras.layers.Activation("softmax")(model)
 
     model = tf.keras.Model(input, model)
     self.__compile_model(model)
