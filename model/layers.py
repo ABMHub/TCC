@@ -136,7 +136,7 @@ class CascadedGruCell(tf.keras.layers.Layer):
         self.gru = tf.keras.layers.GRUCell(self.vocab_size)
         self.gru.build(feature_count)
 
-        self.Wo  = self.add_weight(name='recurrent_cascaded_gru_cell_weight',  shape=(self.vocab_size, 1), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Wo  = self.add_weight(name='recurrent_cascaded_gru_cell_weight',  shape=(self.vocab_size, self.vocab_size), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Uo  = self.add_weight(name='cascaded_gru_cell_weight',            shape=(self.vocab_size, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Co  = self.add_weight(name='context_cascaded_gru_cell_weight',            shape=(feature_count, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
@@ -159,10 +159,9 @@ class CascadedGruCell(tf.keras.layers.Layer):
         """
         gru_out = self.gru(inputs, prev_state)[0]
 
-        emb_out = self.emb(prev_prediction)
+        emb_out = self.emb(K.argmax(prev_prediction))
         emb_out = K.expand_dims(emb_out, 1)
         WoY = tf.matmul(emb_out, self.Wo)
-        WoY = K.squeeze(WoY, -1)
 
         prev_state = K.expand_dims(prev_state, 1)
         UoH = tf.matmul(prev_state, self.Uo)
