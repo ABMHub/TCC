@@ -50,30 +50,37 @@ class Highway(tf.keras.layers.Layer):
 
 # Add attention layer to the deep learning network
 class CascadedAttention(tf.keras.layers.Layer):
-    def __init__(self, vocab_size, **kwargs):
+    def __init__(self, output_size : int, **kwargs):
         super(CascadedAttention, self).__init__(**kwargs)
-        self.vocab_size = vocab_size
+        self.output_size = output_size # tamanho da output
  
-    def build(self, input_shape): # 75x1024
-        self.frame_count = input_shape[-2]
-        # print("input_shape", input_shape)
+    def build(self, input_shape): # [batch, timesteps, features]
+        self.timesteps = input_shape[1]
         
-        self.att = CascadedAttentionCell(28)
+        self.att = CascadedAttentionCell(self.output_size)
         self.att.build(input_shape)
 
-        self.gru = CascadedGruCell(28)
+        self.gru = CascadedGruCell(self.output_size)
         self.gru.build(input_shape)
 
         super(CascadedAttention, self).build(input_shape)
  
-    def call(self, x):
-        batch_size = tf.shape(x)[0]
-        # x = tf.transpose(x, [1, 0, 2])
+    def call(self, inputs):
+        """_summary_
+
+        Args:
+            inputs: the hidden states of the encoder, of shape [batch, timesteps, dim]
+
+        Returns:
+            prediction: the softmaxed prediction for each timestep, of shape [batch, timestep, output_size]
+        """
+        batch_size = tf.shape(inputs)[0]
+        prev_pred  = tf.constant([0]*(self.output_size-1) + [1]) # ultimo elemento eh o blank do ctc
         prev_state = self.gru.get_initial_state(batch_size=batch_size, dtype="float32")
-        prev_pred  = tf.constant([0]*27 + [1])
         output = []
-        for _ in range(self.frame_count):
-            context_vector = self.att(x, prev_state)
+
+        for t in range(self.timesteps):
+            context_vector = self.att(inputs, prev_state, t)
             prev_pred, prev_state = self.gru(context_vector, prev_pred, prev_state)
             output.append(prev_pred)
 
@@ -83,98 +90,106 @@ class CascadedAttention(tf.keras.layers.Layer):
     
     def get_config(self):
         config = super().get_config()
-        config['vocab_size'] = self.vocab_size
-        config['frame_count'] = self.frame_count
+        config['output_size'] = self.output_size
+        config['timesteps'] = self.timesteps
         return config
     
 class CascadedAttentionCell(tf.keras.layers.Layer):
-    def __init__(self, vocab_size, **kwargs):
+    def __init__(self, output_size, **kwargs):
         super(CascadedAttentionCell, self).__init__(**kwargs)
-        self.vocab_size = vocab_size
+        self.output_size = output_size
  
     def build(self, input_shape): # 75x1024
-        feature_count = input_shape[-1]
-        number_frames = input_shape[-2]
+        dim = input_shape[-1]
+        timesteps = input_shape[-2]
         # print("input_shape", input_shape)
-        self.Wa  = self.add_weight(name='recurrent_attention_cell_weight',  shape=(1, feature_count), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ua  = self.add_weight(name='attention_cell_weight',            shape=(number_frames, 1),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Va  = self.add_weight(name='attention_cell_score_weight',      shape=(feature_count, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba1 = self.add_weight(name='attention_cell_bias1',             shape=(number_frames, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba2 = self.add_weight(name='attention_cell_bias2',             shape=(1, feature_count),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Wa  = self.add_weight(name='recurrent_attention_cell_weight',  shape=(1, dim),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ua  = self.add_weight(name='attention_cell_weight',            shape=(timesteps, timesteps, 1),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Va  = self.add_weight(name='attention_cell_score_weight',      shape=(dim, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ba1 = self.add_weight(name='attention_cell_bias2',             shape=(1, dim),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ba2 = self.add_weight(name='attention_cell_bias1',             shape=(timesteps, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Ba3 = self.add_weight(name='attention_cell_bias3',             shape=(1, 1),                           initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
         super(CascadedAttentionCell, self).build(input_shape)
 
-    def call(self, x, prev_prediction):
+    def call(self, inputs, prev_state, t : int):
         """_summary_
 
         Args:
-            x: encoder outputs of shape [batch_size, time_steps, dim]
-            prev_prediction: previous prediction of shape [batch_size, vocab_size]
+            x: encoder outputs of shape [batch_size, timestep, dim]
+            prev_state: previous hidden state of the decoder GRUCell of shape [batch_size, dim]
 
         Returns:
             context_vector: tensor of shape [batch_size, dim]
         """
-        prev_prediction = K.expand_dims(prev_prediction, 1)
-        WaS = (prev_prediction * self.Wa) + self.Ba1
-        UaH = (x * self.Ua) + self.Ba2
+        WaS = (prev_state * self.Wa) + self.Ba1
+        UaH = (inputs * self.Ua[t]) + self.Ba2
+        WaS = K.expand_dims(WaS, axis=1)
 
-        scores = tf.matmul(K.tanh(UaH + WaS), self.Va) + self.Ba3
+        # WaS shape:       [batch,         1, dim]
+        # UaH shape:       [batch, timestep, dim]
+        # UaH + WaS shape: [batch, timestep, dim]
 
-        sm = K.softmax(scores, axis=1)             
-        
-        context_vector = K.sum(x * sm, axis=1)
+        scores = K.tanh(UaH + WaS)
+        scores = tf.matmul(scores, self.Va) + self.Ba3
+
+        # scores shape: [batch, timestep, 1]
+
+        sm = K.softmax(scores, axis=1)                     
+        context_vector = K.sum(inputs * sm, axis=1)
 
         return context_vector
 
 class CascadedGruCell(tf.keras.layers.Layer):
-    def __init__(self, vocab_size, **kwargs):
+    def __init__(self, output_size, **kwargs):
         super(CascadedGruCell, self).__init__(**kwargs)
-        self.vocab_size = vocab_size
+        self.output_size = output_size
  
     def build(self, input_shape):
         feature_count = input_shape[-1]
         self.gru = tf.keras.layers.GRUCell(feature_count)
         self.gru.build(feature_count)
 
-        self.Wo  = self.add_weight(name='recurrent_cascaded_gru_cell_weight',  shape=(1, self.vocab_size), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Uo  = self.add_weight(name='cascaded_gru_cell_weight',            shape=(feature_count, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Co  = self.add_weight(name='context_cascaded_gru_cell_weight',            shape=(feature_count, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Wo  = self.add_weight(name='recurrent_cascaded_gru_cell_weight',  shape=(1, self.output_size), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Uo  = self.add_weight(name='cascaded_gru_cell_weight',            shape=(feature_count, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Co  = self.add_weight(name='context_cascaded_gru_cell_weight',            shape=(feature_count, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
-        self.Bo1  = self.add_weight(name='cascaded_gru_cell_bias',            shape=(1, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Bo2  = self.add_weight(name='cascaded_gru_cell_bias',            shape=(1, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Bo3  = self.add_weight(name='cascaded_gru_cell_bias',            shape=(1, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Bo4  = self.add_weight(name='cascaded_gru_cell_bias',            shape=(1, self.vocab_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Bo1  = self.add_weight(name='cascaded_gru_cell_bias1',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Bo2  = self.add_weight(name='cascaded_gru_cell_bias2',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Bo3  = self.add_weight(name='cascaded_gru_cell_bias3',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Bo4  = self.add_weight(name='cascaded_gru_cell_bias4',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
         self.emb = tf.keras.layers.Embedding(28, 28, input_length=28)
         self.emb.build([input_shape[0], 28])
         super(CascadedGruCell, self).build(input_shape)
 
-    def call(self, inputs, prev_prediction, prev_state):
+    def call(self, context_vector, prev_prediction, prev_state):
         """_summary_
 
         Args:
-            inputs: context vector of shape [batch_size, dim]
-            prev_prediction: previous prediction of shape [batch_size, vocab_size]
-            prev_state: previous prediction of shape [batch_size, vocab_size]
+            context_vector: output of the attention cell of shape:       [batch, dim]
+            prev_prediction: previous output prediction of shape:        [batch, output_size]
+            prev_state: previous state of the internal GruCell of shape: [batch, dim]
 
         Returns:
-            _type_: _description_
+            prediction: prediction of shape: [batch, output_size]
         """
-        gru_out = self.gru(inputs, prev_state)[0]
+        gru_out = self.gru(context_vector, prev_state)[0]
 
         emb_out = self.emb(K.argmax(prev_prediction))
         WoY = (emb_out * self.Wo) + self.Bo1
-        WoY = K.expand_dims(WoY, 1)
 
         prev_state = K.expand_dims(prev_state, 1)
         UoH = tf.matmul(prev_state, self.Uo) + self.Bo2
+        UoH = K.squeeze(UoH, 1)
 
-        inputs = K.expand_dims(inputs, 1)
-        CoC = tf.matmul(inputs, self.Co) + self.Bo3
+        context_vector = K.expand_dims(context_vector, 1)
+        CoC = tf.matmul(context_vector, self.Co) + self.Bo3
+        CoC = K.squeeze(CoC, 1)
+
+        # WoY, UoH, CoC shape: [batch, 28]
 
         pred = K.softmax(WoY + UoH + CoC + self.Bo4)
-        pred = K.squeeze(pred, 1)   
 
         return pred, gru_out
     
