@@ -107,7 +107,7 @@ class CascadedAttentionCell(tf.keras.layers.Layer):
         self.Ua  = self.add_weight(name='attention_cell_weight',            shape=(timesteps, timesteps, 1),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Va  = self.add_weight(name='attention_cell_score_weight',      shape=(dim, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Ba1 = self.add_weight(name='attention_cell_bias2',             shape=(1, dim),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba2 = self.add_weight(name='attention_cell_bias1',             shape=(timesteps, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ba2 = self.add_weight(name='attention_cell_bias1',             shape=(timesteps, timesteps, 1),               initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Ba3 = self.add_weight(name='attention_cell_bias3',             shape=(1, 1),                           initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
         super(CascadedAttentionCell, self).build(input_shape)
@@ -123,7 +123,7 @@ class CascadedAttentionCell(tf.keras.layers.Layer):
             context_vector: tensor of shape [batch_size, dim]
         """
         WaS = (prev_state * self.Wa) + self.Ba1
-        UaH = (inputs * self.Ua[t]) + self.Ba2
+        UaH = (inputs * self.Ua[t]) + self.Ba2[t]
         WaS = K.expand_dims(WaS, axis=1)
 
         # WaS shape:       [batch,         1, dim]
@@ -159,8 +159,8 @@ class CascadedGruCell(tf.keras.layers.Layer):
         self.Bo3  = self.add_weight(name='cascaded_gru_cell_bias3',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Bo4  = self.add_weight(name='cascaded_gru_cell_bias4',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
-        self.emb = tf.keras.layers.Embedding(28, 28, input_length=28)
-        self.emb.build([input_shape[0], 28])
+        self.emb = tf.keras.layers.Embedding(self.output_size, self.output_size, input_length=1)
+        self.emb.build([input_shape[0], 1])
         super(CascadedGruCell, self).build(input_shape)
 
     def call(self, context_vector, prev_prediction, prev_state):
