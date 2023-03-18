@@ -33,6 +33,7 @@ def main():
   test.add_argument("batch_size", help='Tamanho de cada batch para o teste.', type=int)
 
   test.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
+  test.add_argument("-s", "--save_results", required=False, action="store_true", default=False, help="Opção para salvar os resultados adquiridos na pasta do modelo.")
 
   preprocess = subparsers.add_parser("preprocess")
 
@@ -84,12 +85,15 @@ def main():
       model.save_model(args["save_model_path"])
 
     if mode == "test" or not args["skip_evaluation"]:
+      metrics_path = None
       current_model_path = args["save_model_path"] if mode == "train" else args["trained_model_path"]
 
-      metrics_path = os.path.join(current_model_path, "result_metrics.txt")
+      if mode != "test" or args["save_results"] is True:
+        metrics_path = os.path.join(current_model_path, "result_metrics.txt")
+
       model.evaluate_model(save_metrics_file_path = metrics_path)
 
-      if mode == "train" and not args["skip_evaluation"]:
+      if mode == "train":
         model.load_model(checkpoint_path)
 
         print("Best model:")
