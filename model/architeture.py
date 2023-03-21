@@ -1,10 +1,9 @@
 import datetime
-from ctc_decoder import beam_search
 from jiwer import cer, wer
-from multiprocessing import Pool
 from keras import backend as K
-from nltk.translate.bleu_score import corpus_bleu
-import tqdm
+from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
+
+import numpy as np
 
 import absl.logging
 import os
@@ -13,7 +12,7 @@ import os
 import tensorflow as tf
 
 from model.loss import CTCLoss
-from model.layers import Highway, CascadedAttention, CascadedAttentionCell
+from model.layers import Highway, CascadedAttention
 from generator.data_loader import get_training_data
 
 class LCANet():
@@ -93,16 +92,27 @@ class LCANet():
     """
     assert self.data is not None
     
-
     print("Realizando predições...")
     raw_pred = self.model.predict(self.data["validation"])
-    ret = []
+    batch_size = len(raw_pred)
 
-    pool = Pool(processes=8)
-    for res in tqdm.tqdm(pool.imap(beam_wrapper, raw_pred), "Convertendo predições para strings", total=len(raw_pred)):
-      ret.append(res)
+    raw_pred = np.transpose(raw_pred, [1, 0, 2])
+    ret = tf.nn.ctc_beam_search_decoder(raw_pred, tf.fill([batch_size], 75), 200)
 
-    return ret
+    indexes = tf.unique_with_counts(tf.transpose(ret[0][0].indices)[0])[2].numpy()
+
+    chars = dict()
+    chars[26] = " "
+    for i in range(26):
+      chars[i] = chr(i + 97)
+
+    prev = 0
+    decoded = []
+    for i in range(len(indexes)):
+      pred = ret[0][0].values[prev: prev+indexes[i]]
+      decoded.append("".join([chars[elem] for elem in pred.numpy()]))
+
+    return decoded
 
   def evaluate_model(self, predictions = None, save_metrics_file_path : str = None) -> tuple[float, float, float]:
     assert self.data is not None
@@ -125,7 +135,7 @@ class LCANet():
   def __bleu(self, references : list[str], predictions : list[str]) -> float:
     references_p = [[reference.split()] for reference in references]
     predictions_p = [prediction.split() for prediction in predictions]
-    return corpus_bleu(references_p, predictions_p)
+    return corpus_bleu(references_p, predictions_p, smoothing_function=SmoothingFunction().method0)
 
   def __get_model_lcanet(self):
     K.clear_session()
@@ -153,23 +163,12 @@ class LCANet():
     model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
-    model = Highway()(model) # foi removida porque é facil implementar com a api do keras (pesquisar)
-    model = Highway()(model) # aprender a usar direito, é pra fazer o reshape diretamente nela
+    model = Highway()(model)
+    model = Highway()(model)
 
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(model)
 
-    # model = tf.keras.layers.AdditiveAttention()([model, model2])
-    
-    # cell = CascadedAttentionCell(28)
-    # ca = tf.keras.layers.RNN(cell, return_sequences=True)
-    # model = ca(model, constants=model)
-
     model = CascadedAttention(28)(model)
-    # model = tf.keras.layers.TimeDistributed(tf.keras.layers.AdditiveAttention())([gru_output, gru_output])
-    # model = tf.keras.layers.MultiHeadAttention(75, 28)(model, model)
-
-    # model = tf.keras.layers.GRU(28, return_sequences=True, activation="softmax")(model)
-    # model = tf.keras.layers.Activation("softmax")(model)
 
     model = tf.keras.Model(input, model)
     self.__compile_model(model)
@@ -216,6 +215,3 @@ class LCANet():
 
   def __compile_model(self, model : tf.keras.Model):
     model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
-
-def beam_wrapper(pred):
-  return beam_search(pred, 'abcdefghijklmnopqrstuvwxyz ', beam_width = 200)
