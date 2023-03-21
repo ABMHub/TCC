@@ -62,7 +62,7 @@ def main():
         args["regular_epochs"] + args["single_words_epochs"]
       )
       architecture = args["architecture"].lower()
-      assert architecture in ["lcanet", "lipnet"], f"Arquitetura {architecture} não implementada"
+      assert architecture in ["lcanet", "lipnet", "blstm"], f"Arquitetura {architecture} não implementada"
       
       checkpoint_path = args["save_model_path"] + "_best"
 
