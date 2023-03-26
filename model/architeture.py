@@ -127,9 +127,9 @@ class LCANet():
     true = self.data["validation"].get_strings()
     cer_m, wer_m, bleu_m = cer(true, predictions), wer(true, predictions), self.__bleu(true, predictions)
 
+    result_string = f"\nCER: {cer_m}\nWER: {wer_m}\nBLEU: {bleu_m}\n"
+    print(result_string)
     if save_metrics_file_path is not None:
-      result_string = f"\nCER: {cer_m}\nWER: {wer_m}\nBLEU: {bleu_m}\n"
-      print(result_string)
       with open(os.path.join(save_metrics_file_path), "w") as f:
         f.write(result_string)
 
