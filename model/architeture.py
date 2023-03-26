@@ -98,6 +98,7 @@ class LCANet():
     batch_size = len(raw_pred)
 
     raw_pred = np.transpose(raw_pred, [1, 0, 2])
+    raw_pred = tf.math.log(raw_pred)
     ret = tf.nn.ctc_beam_search_decoder(raw_pred, tf.fill([batch_size], 75), 200)
 
     indexes = tf.unique_with_counts(tf.transpose(ret[0][0].indices)[0])[2].numpy()
@@ -110,8 +111,9 @@ class LCANet():
     prev = 0
     decoded = []
     for i in range(len(indexes)):
-      pred = ret[0][0].values[prev: prev+indexes[i]]
+      pred = ret[0][0].values[prev:prev+indexes[i]]
       decoded.append("".join([chars[elem] for elem in pred.numpy()]))
+      prev = prev + indexes[i]
 
     return decoded
 

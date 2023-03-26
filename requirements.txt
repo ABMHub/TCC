@@ -2,7 +2,6 @@ numpy==1.22.4
 dlib==19.24.0
 tqdm==4.64.1
 opencv-python==4.7.0.68
-tensorflow-gpu==2.10
+tensorflow-gpu==2.10.1
 jiwer==2.5.1
 nltk==3.8.1
-./CTCDecoder
