@@ -189,7 +189,7 @@ class CascadedGruCell(tf.keras.layers.Layer):
 
         # WoY, UoH, CoC shape: [batch, 28]
 
-        pred = K.softmax(WoY + UoH + CoC + self.Bo4)
+        pred = WoY + UoH + CoC + self.Bo4
 
         return pred, gru_out
     
