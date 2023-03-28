@@ -144,7 +144,9 @@ class LCANet():
     K.clear_session()
     # LCANet
     input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
-    model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(input)
+    model = tf.keras.layers.Masking(mask_value=0.0)(input)
+    
+    model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
     model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
     model = tf.keras.layers.BatchNormalization()(model)
     model = tf.keras.layers.Activation("relu")(model)
@@ -182,7 +184,9 @@ class LCANet():
     K.clear_session()
     # Lipnet
     input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
-    model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(input)
+    model = tf.keras.layers.Masking(mask_value=0.0)(input)
+
+    model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
     model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
     model = tf.keras.layers.BatchNormalization()(model)
     model = tf.keras.layers.Activation("relu")(model)
@@ -218,7 +222,9 @@ class LCANet():
 
   def __get_model_3D_2D_BLSTM(self):
     input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
-    model = tf.keras.layers.BatchNormalization()(input)
+    model = tf.keras.layers.Masking(mask_value=0.0)(input)
+
+    model = tf.keras.layers.BatchNormalization()(model)
 
     model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
     model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
