@@ -45,7 +45,7 @@ class LCANet():
   def save_model(self, path : str):
     self.model.save(path)
 
-  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_slice : float = 0.2, validation_only = False, curriculum_steps = None):
+  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_slice : float = 0.2, validation_only = False):
     """Carrega dados e geradores no objeto LCANet.
     As seeds dos geradores são fixas.
 
@@ -56,7 +56,7 @@ class LCANet():
         validation_slice (float, optional): porcentagem de dados separados para validação. Defaults to 0.2.
         validation_only (bool, optional): _description_. Defaults to False.
     """
-    self.data = get_training_data(x_path, y_path, batch_size = batch_size, val_size = validation_slice, validation_only = validation_only, curriculum_steps=curriculum_steps)
+    self.data = get_training_data(x_path, y_path, batch_size = batch_size, val_size = validation_slice, validation_only = validation_only)
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None) -> None:
     """Realiza o treinamento do modelo.

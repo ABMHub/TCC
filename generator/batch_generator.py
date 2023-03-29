@@ -18,8 +18,6 @@ class VideoData:
     self.mean, self.std = mean, std
     self.reversed = bool(random.getrandbits(1)) if self.mode != "test" else False
 
-    np.random.seed(42)
-
     if self.mode == "single":
       align_idx = random.randrange(0, len(align))
       self.info = align[align_idx]
@@ -58,7 +56,7 @@ class VideoData:
     rand_single = random.random()
     if epoch >= 0 and epoch < 10:
       single_chance = 1 / (2 ** epoch)
-      if rand_single > single_chance:
+      if rand_single < single_chance:
         return "single"
       
     rand_jitter = bool(random.getrandbits(1))
@@ -89,10 +87,11 @@ class VideoData:
     return frames
   
 class BatchGenerator(tf.keras.utils.Sequence):
-  def __init__(self, data : tuple, batch_size : int, training : bool, curriculum_steps : tuple[int, int] = None, mean_and_std : tuple[float, float] = None) -> None:
+  def __init__(self, data : tuple, batch_size : int, training : bool, mean_and_std : tuple[float, float] = None) -> None:
     # assert batch_size > 1 or training is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
-    assert training is False or curriculum_steps is not None, "É preciso passar as etapas do treinamento por curriculo no treinamento."
     super().__init__()
+
+    random.seed(42)
 
     self.video_paths = data[0]
 
@@ -116,11 +115,24 @@ class BatchGenerator(tf.keras.utils.Sequence):
     else:
       self.mean, self.std_var = mean_and_std
 
+    self.jitter = 0
+    self.regular = 0
+    self.single = 0
+    self.reversed = 0
+
   def get_strings(self):
     return [" ".join(elem.sentence) for elem in self.aligns]
 
   def on_epoch_end(self):
     self.epoch += 1
+
+    print(f"\nSingle: {self.single}\nRegular: {self.regular}\nJitter: {self.jitter}")
+    print(f"Reversed: {self.reversed}/{len(self.data)}")
+
+    self.jitter = 0
+    self.regular = 0
+    self.single = 0
+    self.reversed = 0
 
   def __get_std_params(self): # standardizacao deve ser por canal de cor
     pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
@@ -166,6 +178,15 @@ class BatchGenerator(tf.keras.utils.Sequence):
     max_y_size = 0
     for vid in batch_videos:
       vid_obj = VideoData(vid[0], vid[1], self.epoch, self.training, self.mean, self.std_var)
+      if vid_obj.mode == "jitter":
+        self.jitter += 1
+      if vid_obj.mode == "regular":
+        self.regular += 1
+      if vid_obj.mode == "single":
+        self.single += 1
+        print(self.single)
+      if vid_obj.reversed is True:
+        self.reversed += 1
 
       xy = vid_obj.load_video()
       x.append(xy[0])
