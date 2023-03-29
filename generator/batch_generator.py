@@ -55,7 +55,7 @@ class VideoData:
     
     rand_single = random.random()
     if epoch >= 0 and epoch < 4:
-      single_chance = 1 / (2 ** epoch - 1)
+      single_chance = 1 / (2 ** (epoch - 1))
       if rand_single < single_chance:
         return "single"
       
