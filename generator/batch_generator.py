@@ -54,14 +54,15 @@ class VideoData:
       return "test"
     
     rand_single = random.random()
-    if epoch >= 0 and epoch < 10:
-      single_chance = 1 / (2 ** epoch)
+    if epoch >= 0 and epoch < 4:
+      single_chance = 1 / (2 ** epoch - 1)
       if rand_single < single_chance:
         return "single"
       
-    rand_jitter = bool(random.getrandbits(1))
-    if rand_jitter is True:
-      return "jitter"
+    if epoch >= 25:
+      jitter_chance = 1 / (2 ** (35 - epoch))
+      if rand_single < jitter_chance:
+        return "jitter"
     
     return "regular"
 
@@ -184,7 +185,6 @@ class BatchGenerator(tf.keras.utils.Sequence):
         self.regular += 1
       if vid_obj.mode == "single":
         self.single += 1
-        print(self.single)
       if vid_obj.reversed is True:
         self.reversed += 1
 
