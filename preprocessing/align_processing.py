@@ -24,6 +24,9 @@ class Align:
     return self.start[index], self.stop[index], self.sentence[index]
   
   def get_sub_sentence(self, index, size):
+    if size > 6:
+      return 0, 75, self.number_string
+    
     y = self.sentence[index:index+size]
     return self.start[index], self.stop[index+(size-1)], Align.sentence2number(y)
 
