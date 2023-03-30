@@ -9,63 +9,45 @@ import random
 RANDOM_SEED = 42
 
 class VideoData:
-  def __init__(self, video_path : str, align : Align, epoch : int, training : bool, mean : float, std : float):
+  def __init__(self, video_path : str, align : Align, training : bool, mean : float, std : float):
     self.video_path = video_path
     self.info = None
     self.align = align
     self.training = training
-    self.mode = self.get_mode(epoch)
     self.mean, self.std = mean, std
-    self.reversed = bool(random.getrandbits(1)) if self.mode != "test" else False
+    self.reversed = bool(random.getrandbits(1)) if training is True else False
 
-    if self.mode == "single":
-      align_idx = random.randrange(0, len(align))
-      self.info = align[align_idx]
-
-    if self.mode == "jitter":
-      self.info = self.generate_jitter(75)
-
-  def load_video(self):
+  def load_video(self, epoch):
     extension = self.video_path.split(".")[-1]
     video_loader = loaders[extension]
 
+    number_of_sentences = 6
+    interval_size = 5
+
+    y = None
+
     video = video_loader(self.video_path)
-    if self.mode == "single":
-      video = video[self.info[0]:self.info[1]+1]
-      y = Align.sentence2number(self.info[2])
-    
-    elif self.mode == "jitter":
-      video = video[self.info]
-      y = self.align.number_string
+    if self.training is True:
+      size = int(epoch/interval_size)+1
+      subsentence_idx = random.randint(0, (number_of_sentences)-size)
+
+      info = self.align.get_sub_sentence(subsentence_idx, size)
+
+      video = video[info[0]:info[1]+1]
+      
+      if self.reversed is True:
+        video = np.flip(video, axis=2)
+
+      y = info[2]
 
     else:
       y = self.align.number_string
-
-    if self.reversed is True:
-      video = np.flip(video, axis=2)
 
     pad_size = 75 - video.shape[0]
     x = (np.array(video) - self.mean)/self.std
     x = np.pad(video, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
     return x, y
-
-  def get_mode(self, epoch):
-    if self.training is False:
-      return "test"
-    
-    rand_single = random.random()
-    if epoch >= 0 and epoch < 4:
-      single_chance = 1 / (2 ** (epoch - 1))
-      if rand_single < single_chance:
-        return "single"
-      
-    if epoch >= 25:
-      jitter_chance = 1 / (2 ** (35 - epoch))
-      if rand_single < jitter_chance:
-        return "jitter"
-    
-    return "regular"
-
+  
   def generate_jitter(self, timesteps : int) -> list[int]:
     frames = list(range(timesteps))
     j = 0
@@ -178,17 +160,9 @@ class BatchGenerator(tf.keras.utils.Sequence):
     y = []
     max_y_size = 0
     for vid in batch_videos:
-      vid_obj = VideoData(vid[0], vid[1], self.epoch, self.training, self.mean, self.std_var)
-      if vid_obj.mode == "jitter":
-        self.jitter += 1
-      if vid_obj.mode == "regular":
-        self.regular += 1
-      if vid_obj.mode == "single":
-        self.single += 1
-      if vid_obj.reversed is True:
-        self.reversed += 1
+      vid_obj = VideoData(vid[0], vid[1], self.training, self.mean, self.std_var)
 
-      xy = vid_obj.load_video()
+      xy = vid_obj.load_video(self.epoch)
       x.append(xy[0])
       y.append(xy[1])
       max_y_size = max(max_y_size, len(y[-1]))
