@@ -29,7 +29,10 @@ class VideoData:
     video = video_loader(self.video_path)
     if self.training is True:
       size = int(epoch/interval_size)+1
-      subsentence_idx = random.randint(0, (number_of_sentences)-size)
+      if size >= 6:
+        subsentence_idx = 0
+      else:
+        subsentence_idx = random.randint(0, (number_of_sentences)-size)
 
       info = self.align.get_sub_sentence(subsentence_idx, size)
 
@@ -98,24 +101,11 @@ class BatchGenerator(tf.keras.utils.Sequence):
     else:
       self.mean, self.std_var = mean_and_std
 
-    self.jitter = 0
-    self.regular = 0
-    self.single = 0
-    self.reversed = 0
-
   def get_strings(self):
     return [" ".join(elem.sentence) for elem in self.aligns]
 
   def on_epoch_end(self):
     self.epoch += 1
-
-    print(f"\nSingle: {self.single}\nRegular: {self.regular}\nJitter: {self.jitter}")
-    print(f"Reversed: {self.reversed}/{len(self.data)}")
-
-    self.jitter = 0
-    self.regular = 0
-    self.single = 0
-    self.reversed = 0
 
   def __get_std_params(self): # standardizacao deve ser por canal de cor
     pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
