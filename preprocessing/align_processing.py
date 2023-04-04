@@ -1,4 +1,3 @@
-import os
 from typing import List
 import math
 
@@ -25,10 +24,13 @@ class Align:
   
   def get_sub_sentence(self, index, size):
     if size > 6:
-      return 0, 75, self.number_string
+      return 0, 74, self.number_string
+    
+    beg = self.start[index]         if index > 0      else 0
+    end = self.stop[index+(size-1)] if index+size < 7 else 74
     
     y = self.sentence[index:index+size]
-    return self.start[index], self.stop[index+(size-1)], Align.sentence2number(y)
+    return beg, end, Align.sentence2number(y)
 
   @staticmethod
   def sentence2number(sentence : list[str]) -> list[int]:

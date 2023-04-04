@@ -22,17 +22,16 @@ class VideoData:
     video_loader = loaders[extension]
 
     number_of_sentences = 6
-    interval_size = 5
+    interval_size = 0.3
 
     y = None
 
     video = video_loader(self.video_path)
     if self.training is True:
-      size = int(epoch/interval_size)+1
-      if size >= 6:
-        subsentence_idx = 0
-      else:
-        subsentence_idx = random.randint(0, (number_of_sentences)-size)
+      mean = epoch * interval_size
+      size = int(random.normalvariate(mean, 1))
+      size = max(size, 1)
+      subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
 
       info = self.align.get_sub_sentence(subsentence_idx, size)
 
