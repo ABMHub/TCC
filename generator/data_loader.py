@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import numpy as np
 from generator.batch_generator import BatchGenerator
 
 RANDOM_SEED = 42
@@ -10,19 +11,19 @@ class DataConfig:
     self.random_seed : int = data_dict["random_seed"]
     self.val_size : float = data_dict["val_size"]
 
-    self.mean : float = data_dict["mean"]
-    self.std : float = data_dict["std"]
+    self.mean : np.ndarray = np.array(data_dict["mean"])
+    self.std : np.ndarray = np.array(data_dict["std"])
 
     self.train : tuple[list[str]] = data_dict["train"]["videos"], data_dict["train"]["aligns"]
     self.validation : tuple[list[str]] = data_dict["validation"]["videos"], data_dict["validation"]["aligns"]
 
   @staticmethod
-  def save_config(random_seed : int, val_size : float, mean : float, std : float, train_data : tuple[list[str]], validation_data : tuple[list[str]], file_path : str) -> None:
+  def save_config(random_seed : int, val_size : float, mean : np.ndarray, std : np.ndarray, train_data : tuple[list[str]], validation_data : tuple[list[str]], file_path : str) -> None:
     json_dict = {
       "random_seed": random_seed,
       "val_size": val_size,
-      "mean": mean,
-      "std": std,
+      "mean": list(mean),
+      "std": list(std),
       "train": {
         "videos": train_data[0],
         "aligns": train_data[1]

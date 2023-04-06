@@ -28,26 +28,25 @@ class VideoData:
 
     video = video_loader(self.video_path)
     if self.training is True:
-      mean = epoch * interval_size
-      size = int(random.normalvariate(mean, 1))
-      size = max(size, 1)
-      subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
+    #   mean = epoch * interval_size
+    #   size = int(random.normalvariate(mean, 1))
+    #   size = max(size, 1)
+    #   subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
 
-      info = self.align.get_sub_sentence(subsentence_idx, size)
+    #   info = self.align.get_sub_sentence(subsentence_idx, size)
 
-      video = video[info[0]:info[1]+1]
+    #   video = video[info[0]:info[1]+1]
       
       if self.reversed is True:
         video = np.flip(video, axis=2)
 
-      y = info[2]
+    #   y = info[2]
 
-    else:
-      y = self.align.number_string
+    y = self.align.number_string
 
-    pad_size = 75 - video.shape[0]
+    # pad_size = 75 - video.shape[0]
     x = (np.array(video) - self.mean)/self.std
-    x = np.pad(video, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+    # x = np.pad(video, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
     return x, y
   
   def generate_jitter(self, timesteps : int) -> list[int]:
@@ -72,7 +71,7 @@ class VideoData:
     return frames
   
 class BatchGenerator(tf.keras.utils.Sequence):
-  def __init__(self, data : tuple, batch_size : int, training : bool, mean_and_std : tuple[float, float] = None) -> None:
+  def __init__(self, data : tuple, batch_size : int, training : bool, mean_and_std : tuple[np.ndarray, np.ndarray] = None) -> None:
     # assert batch_size > 1 or training is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
     super().__init__()
 
@@ -94,7 +93,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     self.generator_steps = int(np.ceil(len(self.data) / self.batch_size))
 
     if mean_and_std is None:
-      self.mean, self.std_var = 0, 1
+      self.mean, self.std_var = np.zeros(3), np.ones(3)
       self.mean, self.std_var = self.__get_std_params()
 
     else:
@@ -111,18 +110,18 @@ class BatchGenerator(tf.keras.utils.Sequence):
     videos_mean = []
     for i in range(len(self.video_paths)):
       data = VideoData(self.video_paths[i], self.aligns[i], False, 0, 1).load_video(None)[0]
-      videos_mean.append(np.mean(data))
+      videos_mean.append(np.mean(data, axis=(0, 1)))
       pbar.update()
 
-    dataset_mean = np.mean(videos_mean) # a media nao esta exata. o ultimo batch eh menor
-    dataset_std = 0
+    dataset_mean = np.mean(videos_mean, axis=0) # a media nao esta exata. o ultimo batch eh menor
+    dataset_std = (0, 0, 0)
 
     for i in range(len(self.video_paths)):
       data = VideoData(self.video_paths[i], self.aligns[i], False, 0, 1).load_video(None)[0]
-      dataset_std += np.sum(np.square(data - dataset_mean))
+      dataset_std += np.sum(np.square(data - dataset_mean), axis=(0, 1))
       pbar.update()
 
-    dataset_std = math.sqrt(dataset_std/(len(self.video_paths)*75*50*100*3))
+    dataset_std = np.sqrt(dataset_std/(len(self.video_paths)*75*50*100))
     pbar.close()
 
     print(f"Média: {dataset_mean}\nDesvio Padrão: {dataset_std}")
