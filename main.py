@@ -102,7 +102,7 @@ def main():
     alignments_path = args["single_words"]
 
     if not args["skip_mouths"]:
-      convert_all_videos_multiprocess(raw_video_path, ".mpg", mouths_path, True)
+      convert_all_videos_multiprocess(raw_video_path, ".mpg", mouths_path)
 
     else:
       mouths_path = raw_video_path

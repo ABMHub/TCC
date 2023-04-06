@@ -16,40 +16,61 @@ class VideoData:
     self.training = training
     self.mean, self.std = mean, std
     self.reversed = bool(random.getrandbits(1)) if training is True else False
+    self.subsentences = False
+    self.jitter = False
 
   def load_video(self, epoch):
     extension = self.video_path.split(".")[-1]
     video_loader = loaders[extension]
 
-    number_of_sentences = 6
-    interval_size = 0.3
-
     y = None
+    mask = None
+    jitter = None
 
     video = video_loader(self.video_path)
     if self.training is True:
-    #   mean = epoch * interval_size
-    #   size = int(random.normalvariate(mean, 1))
-    #   size = max(size, 1)
-    #   subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
+      if self.subsentences is True:
+        mask, y = self.generate_subsentence_mask(epoch)
 
-    #   info = self.align.get_sub_sentence(subsentence_idx, size)
+      if self.jitter is True:
+        jitter = self.generate_jitter()
+        y = self.align.number_string
 
-    #   video = video[info[0]:info[1]+1]
-      
       if self.reversed is True:
         video = np.flip(video, axis=2)
 
-    #   y = info[2]
+    else:
+      y = self.align.number_string
 
-    y = self.align.number_string
-
-    # pad_size = 75 - video.shape[0]
     x = (np.array(video) - self.mean)/self.std
-    # x = np.pad(video, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+
+    assert mask is None or jitter is None, "Proibido jitter e subsentence ao mesmo tempo!"
+
+    if mask is not None:
+      x = x * mask
+
+    if jitter is not None:
+      x = x[jitter]
+      pad_size = 75 - video.shape[0]
+      x = np.pad(video, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+
     return x, y
-  
-  def generate_jitter(self, timesteps : int) -> list[int]:
+
+  def generate_subsentence_mask(self, epoch):
+    number_of_sentences = 6
+    interval_size = 0.3
+
+    mean = epoch * interval_size
+    size = int(random.normalvariate(mean, 1))
+    size = max(size, 1)
+    subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
+
+    begin, end, y = self.align.get_sub_sentence(subsentence_idx, size)
+
+    mask = np.array([0]*begin + [1]*((end-begin)+1) + [0]*(74-end))
+    return mask, y
+
+  def generate_jitter(self, timesteps : int = 75) -> list[int]:
     frames = list(range(timesteps))
     j = 0
     while j < len(frames):
@@ -110,15 +131,16 @@ class BatchGenerator(tf.keras.utils.Sequence):
     videos_mean = []
     for i in range(len(self.video_paths)):
       data = VideoData(self.video_paths[i], self.aligns[i], False, 0, 1).load_video(None)[0]
-      videos_mean.append(np.mean(data, axis=(0, 1)))
+      videos_mean.append(np.mean(data, axis=(0, 1, 2)))
       pbar.update()
 
     dataset_mean = np.mean(videos_mean, axis=0) # a media nao esta exata. o ultimo batch eh menor
-    dataset_std = (0, 0, 0)
+    dataset_std = np.zeros(3)
+    print(dataset_mean)
 
     for i in range(len(self.video_paths)):
       data = VideoData(self.video_paths[i], self.aligns[i], False, 0, 1).load_video(None)[0]
-      dataset_std += np.sum(np.square(data - dataset_mean), axis=(0, 1))
+      dataset_std += np.sum(np.square(data - dataset_mean), axis=(0, 1, 2))
       pbar.update()
 
     dataset_std = np.sqrt(dataset_std/(len(self.video_paths)*75*50*100))

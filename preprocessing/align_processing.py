@@ -27,7 +27,7 @@ class Align:
       return 0, 74, self.number_string
     
     beg = self.start[index]         if index > 0      else 0
-    end = self.stop[index+(size-1)] if index+size < 7 else 74
+    end = self.stop[index+(size-1)] if index+size < 6 else 74
     
     y = self.sentence[index:index+size]
     return beg, end, Align.sentence2number(y)
