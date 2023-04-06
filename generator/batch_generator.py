@@ -32,8 +32,11 @@ class VideoData:
       if self.subsentences is True:
         mask, y = self.generate_subsentence_mask(epoch)
 
-      if self.jitter is True:
+      elif self.jitter is True:
         jitter = self.generate_jitter()
+        y = self.align.number_string
+
+      else:
         y = self.align.number_string
 
       if self.reversed is True:
@@ -67,7 +70,7 @@ class VideoData:
 
     begin, end, y = self.align.get_sub_sentence(subsentence_idx, size)
 
-    mask = np.array([0]*begin + [1]*((end-begin)+1) + [0]*(74-end))
+    mask = np.array([0]*begin + [1]*((end-begin)+1) + [0]*(74-end)).reshape(75, 1, 1, 1)
     return mask, y
 
   def generate_jitter(self, timesteps : int = 75) -> list[int]:
