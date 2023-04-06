@@ -1,7 +1,7 @@
 import datetime
 from jiwer import cer, wer
 from keras import backend as K
-from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
+from nltk.translate.bleu_score import sentence_bleu
 
 import numpy as np
 
@@ -138,7 +138,7 @@ class LCANet():
   def __bleu(self, references : list[str], predictions : list[str]) -> float:
     references_p = [[reference.split()] for reference in references]
     predictions_p = [prediction.split() for prediction in predictions]
-    return corpus_bleu(references_p, predictions_p, smoothing_function=SmoothingFunction().method0)
+    return np.mean([sentence_bleu(ref, pred) for ref, pred in zip(references_p, predictions_p)])
 
   def __get_model_lcanet(self):
     K.clear_session()

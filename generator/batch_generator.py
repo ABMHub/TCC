@@ -110,7 +110,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
     videos_mean = []
     for i in range(len(self.video_paths)):
-      data = self.video_loader(self.video_paths[i])
+      data = VideoData(self.video_paths[i], self.aligns[i], False, 0, 1).load_video(None)[0]
       videos_mean.append(np.mean(data))
       pbar.update()
 
@@ -118,7 +118,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     dataset_std = 0
 
     for i in range(len(self.video_paths)):
-      data = self.video_loader(self.video_paths[i])
+      data = VideoData(self.video_paths[i], self.aligns[i], False, 0, 1).load_video(None)[0]
       dataset_std += np.sum(np.square(data - dataset_mean))
       pbar.update()
 
