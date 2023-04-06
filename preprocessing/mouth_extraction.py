@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import os
 import tqdm
-from multiprocessing import Process
+from multiprocessing import Pool
 import time
 import math
 
@@ -28,36 +28,25 @@ def convert_all_videos(path, extension, dest_folder, numpy_file = True, verbose 
       except (IndexError, TypeError, AssertionError) as err:
         print(f"Video {orig} com erro\n{err}")
 
-def __video_class_wrapper(orig, verbose, path):
+def __video_class_wrapper(args):
+  orig, verbose, path = args
+  create_dir_recursively("/".join(path.split("/")[:-1]))
   try:
     FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(path)
   except (IndexError, TypeError, AssertionError) as err:
     print(f"Video {orig} com erro\n{err}")
 
-def convert_all_videos_multiprocess(path, extension, dest_folder, numpy_file = True, verbose = 1, process_count = 6):
+def convert_all_videos_multiprocess(path, extension, dest_folder, verbose = 1, numpy_file = True, process_count = 12):
   orig_dest_videos = get_all_videos(path, extension, dest_folder)
   dest_extension = ".npz" if numpy_file else ".avi"
 
-  processes = []
-
-  for orig in tqdm.tqdm(orig_dest_videos, desc="Convertendo Video", disable=verbose<=0):
-    while len(processes) >= process_count:
-      deleted = False
-      for i in range(len(processes)-1, -1, -1):
-        if not processes[i].is_alive():
-          processes[i].close()
-          del processes[i]
-          deleted = True
-
-      if not deleted:
-        time.sleep(0.5)
-
-    # provavelmente deveria usar uma pool, mas funciona
+  pool = Pool(processes=process_count)
+  args = []
+  for orig in orig_dest_videos:
     if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
-      create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
-      p = Process(target=__video_class_wrapper, args=(orig, verbose, orig_dest_videos[orig]))
-      p.start()
-      processes.append(p)
+      args.append((orig, verbose, orig_dest_videos[orig]))
+
+  [None for _ in tqdm.tqdm(pool.imap_unordered(__video_class_wrapper, args), desc="Convertendo Video", disable=verbose<=0, total=len(orig_dest_videos), initial=len(orig_dest_videos) - len(args))]
 
 class FaceVideo:
   def __init__(self, video_path : str, numpy_file : bool = True, verbose = 1):
@@ -76,30 +65,9 @@ class FaceVideo:
       pbar.update()
     pbar.close()
 
-  def __get_dest_points(self, img_obj):
-    r_eye = img_obj.r_eye
-    l_eye = img_obj.l_eye
-    mouth = img_obj.mouth
-
-    mid_eyes = np.mean([r_eye[0], l_eye[0]]), np.mean([r_eye[1], l_eye[1]])
-    eyes_dist = math.dist(r_eye, l_eye)
-    mouth_mid_eyes_dist = math.dist(mid_eyes, mouth)
-
-    new_mid_eyes = (mouth[0], mouth[1] - mouth_mid_eyes_dist)
-    new_l_eye = (new_mid_eyes[0] - eyes_dist/2, new_mid_eyes[1])
-    new_r_eye = (new_mid_eyes[0] + eyes_dist/2, new_mid_eyes[1])
-
-    return np.array([
-      new_l_eye,
-      new_r_eye,
-      mouth,
-    ], dtype=np.float32)
-
   def get_mouth_video(self, path):
-    example_img = self.frames[0]
-    dest = self.__get_dest_points(example_img)
-
-    self.frames = [FaceFrame(frame_obj.transform(dest)) for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0)] 
+    for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0):
+      frame_obj.transform() 
 
     # n_video = cv2.VideoWriter("./testetcc.avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, tuple(reversed(self.frames[0].img.shape[0:2])))
     # for frame in self.frames:
@@ -154,17 +122,37 @@ class FaceFrame:
   def __get_point(self, lm, number) -> tuple[int, int]:
     return int(lm.part(number).x), int(lm.part(number).y)
 
-  def transform(self, dest):
+  def __get_dest_points(self):
+    r_eye = self.r_eye
+    l_eye = self.l_eye
+    mouth = self.mouth
+
+    mid_eyes = np.mean([r_eye[0], l_eye[0]]), np.mean([r_eye[1], l_eye[1]])
+    eyes_dist = math.dist(r_eye, l_eye)
+    mouth_mid_eyes_dist = math.dist(mid_eyes, mouth)
+
+    new_mid_eyes = (mouth[0], mouth[1] - mouth_mid_eyes_dist)
+    new_l_eye = (new_mid_eyes[0] - eyes_dist/2, new_mid_eyes[1])
+    new_r_eye = (new_mid_eyes[0] + eyes_dist/2, new_mid_eyes[1])
+
+    return np.array([
+      new_l_eye,
+      new_r_eye,
+      mouth,
+    ], dtype=np.float32)
+
+  def transform(self):
     orig = np.float32([
       self.l_eye,
       self.r_eye,
       self.mouth
     ])
 
+    dest = self.__get_dest_points()
     matrix = cv2.getAffineTransform(orig, dest)
-    new_image = cv2.warpAffine(self.img, matrix, tuple(reversed(self.img.shape[0:2])))
 
-    return new_image
+    self.img = cv2.warpAffine(self.img, matrix, tuple(reversed(self.img.shape[0:2])))
+    self.l_eye, self.r_eye, self.mouth = dest
 
   def get_mouth_img(self):
     m = [int(i) for i in self.mouth]

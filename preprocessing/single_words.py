@@ -5,7 +5,7 @@ import tqdm
 import time
 from multiprocessing import Process
 
-from preprocessing.align_processing import read_file
+from preprocessing.align_processing import Align
 from util.path import create_dir_recursively, get_extension, get_file_name, get_file_path
 from util.video import get_all_videos, loaders
 
@@ -55,7 +55,7 @@ def slice_video(video_path, alignment_path, dest_folder):
   video_name = get_file_name(video_path)
 
   video_matrix = loaders[video_extension](video_path)
-  start_times, stop_times, sentences = read_file(alignment_path, True)
+  start_times, stop_times, sentences = Align.read_file(alignment_path, True)
 
   for start, stop, wrd in zip(start_times, stop_times, sentences):
     first_frame = math.floor(start/1000)
