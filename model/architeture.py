@@ -81,6 +81,7 @@ class LCANet():
         save_best_only=True
       )
       callback_list.append(model_checkpoint_callback)
+      callback_list.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=5))
 
     self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, verbose=1)
 
