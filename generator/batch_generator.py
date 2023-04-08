@@ -1,4 +1,3 @@
-import math
 import tensorflow as tf
 import numpy as np
 from preprocessing.align_processing import Align
@@ -16,8 +15,9 @@ class VideoData:
     self.training = training
     self.mean, self.std = mean, std
     self.reversed = bool(random.getrandbits(1)) if training is True else False
-    self.subsentences = False
-    self.jitter = False
+    aug = random.random()
+    self.subsentences = aug >= 0.85
+    self.jitter = aug < 0.15
 
   def load_video(self, epoch):
     extension = self.video_path.split(".")[-1]
@@ -60,15 +60,16 @@ class VideoData:
     return x, y
 
   def generate_subsentence_mask(self, epoch):
-    number_of_sentences = 6
-    interval_size = 0.3
+    # number_of_sentences = 6
+    # interval_size = 0.3
 
-    mean = epoch * interval_size
-    size = int(random.normalvariate(mean, 1))
-    size = max(size, 1)
-    subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
+    # mean = epoch * interval_size
+    # size = int(random.normalvariate(mean, 1))
+    # size = max(size, 1)
+    # subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
+    subsentence_idx = random.randint(0, 5)
 
-    begin, end, y = self.align.get_sub_sentence(subsentence_idx, size)
+    begin, end, y = self.align.get_sub_sentence(subsentence_idx, 1)
 
     mask = np.array([0]*begin + [1]*((end-begin)+1) + [0]*(74-end)).reshape(75, 1, 1, 1)
     return mask, y
