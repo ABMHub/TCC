@@ -16,7 +16,7 @@ class VideoData:
     self.mean, self.std = mean, std
     self.reversed = bool(random.getrandbits(1)) if training is True else False
     # aug = random.random()
-    # self.subsentences = aug >= 0.85
+    self.subsentences = False
     self.jitter = training
 
   def load_video(self, epoch):
