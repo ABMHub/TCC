@@ -12,6 +12,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
 from model.loss import CTCLoss
+from model.callbacks import MinEarlyStopping
 from model.layers import Highway, CascadedAttention
 from generator.data_loader import get_training_data
 
@@ -81,7 +82,7 @@ class LCANet():
         save_best_only=True
       )
       callback_list.append(model_checkpoint_callback)
-      callback_list.append(tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=5))
+      callback_list.append(MinEarlyStopping(monitor="val_loss", patience=5, min_epoch=30))
 
     self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, verbose=1)
 
