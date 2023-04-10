@@ -15,9 +15,9 @@ class VideoData:
     self.training = training
     self.mean, self.std = mean, std
     self.reversed = bool(random.getrandbits(1)) if training is True else False
-    aug = random.random()
-    self.subsentences = aug >= 0.85
-    self.jitter = aug < 0.15
+    # aug = random.random()
+    # self.subsentences = aug >= 0.85
+    self.jitter = training
 
   def load_video(self, epoch):
     extension = self.video_path.split(".")[-1]
@@ -89,9 +89,7 @@ class VideoData:
 
     extra_frames = len(frames) - 75
     if extra_frames > 0:
-      for _ in range(extra_frames):
-        choice = random.choice(range(len(frames)))
-        del frames[choice]
+      frames = frames[0:75]
 
     return frames
   
@@ -176,9 +174,9 @@ class BatchGenerator(tf.keras.utils.Sequence):
     for vid in batch_videos:
       vid_obj = VideoData(vid[0], vid[1], self.training, self.mean, self.std_var)
 
-      xy = vid_obj.load_video(self.epoch)
-      x.append(xy[0])
-      y.append(xy[1])
+      xp, yp = vid_obj.load_video(self.epoch)
+      x.append(xp)
+      y.append(yp)
       max_y_size = max(max_y_size, len(y[-1]))
   
     x = np.array(x)

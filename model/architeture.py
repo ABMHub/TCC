@@ -145,7 +145,6 @@ class LCANet():
     K.clear_session()
     # LCANet
     input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
-    model = tf.keras.layers.Masking(mask_value=0.0)(input)
     
     model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
     model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
@@ -161,8 +160,8 @@ class LCANet():
     model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
     model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
-    model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
-    model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 5, 5), strides=(1, 1, 1))(model) # ? ta falando 1 2 2 no artigo, mas nao bate com o summar
+    model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(model)
+    model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1))(model) # ? ta falando 1 2 2 no artigo, mas nao bate com o summar
     model = tf.keras.layers.BatchNormalization()(model)
     model = tf.keras.layers.Activation("relu")(model)
     model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
@@ -186,7 +185,6 @@ class LCANet():
     K.clear_session()
     # Lipnet
     input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
-    model = tf.keras.layers.Masking(mask_value=0.0)(input)
 
     model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
     model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
@@ -202,8 +200,8 @@ class LCANet():
     model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
     model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
-    model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
-    model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 5, 5), strides=(1, 1, 1))(model)
+    model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(model)
+    model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1))(model)
     model = tf.keras.layers.BatchNormalization()(model)
     model = tf.keras.layers.Activation("relu")(model)
     model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
@@ -224,7 +222,6 @@ class LCANet():
 
   def __get_model_3D_2D_BLSTM(self):
     input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
-    model = tf.keras.layers.Masking(mask_value=0.0)(input)
 
     model = tf.keras.layers.BatchNormalization()(model)
 
