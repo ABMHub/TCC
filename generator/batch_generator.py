@@ -14,10 +14,9 @@ class VideoData:
     self.align = align
     self.training = training
     self.mean, self.std = mean, std
-    self.reversed = bool(random.getrandbits(1)) if training is True else False
-    # aug = random.random()
+    self.reversed = bool(random.getrandbits(1))
     self.subsentences = False
-    self.jitter = training
+    self.jitter = True
 
   def load_video(self, epoch):
     extension = self.video_path.split(".")[-1]
@@ -54,8 +53,8 @@ class VideoData:
 
     if jitter is not None:
       x = x[jitter]
-      pad_size = 75 - video.shape[0]
-      x = np.pad(video, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+      pad_size = 75 - x.shape[0]
+      x = np.pad(x, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
 
     return x, y
 
@@ -95,7 +94,6 @@ class VideoData:
   
 class BatchGenerator(tf.keras.utils.Sequence):
   def __init__(self, data : tuple, batch_size : int, training : bool, mean_and_std : tuple[np.ndarray, np.ndarray] = None) -> None:
-    # assert batch_size > 1 or training is False, "Não é possível fazer augmentation em um batch-size de 1. É necessário batch-size ao menos de 2."
     super().__init__()
 
     random.seed(42)
@@ -128,7 +126,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
   def on_epoch_end(self):
     self.epoch += 1
 
-  def __get_std_params(self): # standardizacao deve ser por canal de cor
+  def __get_std_params(self):
     pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
     videos_mean = []
     for i in range(len(self.video_paths)):
@@ -177,8 +175,8 @@ class BatchGenerator(tf.keras.utils.Sequence):
       xp, yp = vid_obj.load_video(self.epoch)
       x.append(xp)
       y.append(yp)
-      max_y_size = max(max_y_size, len(y[-1]))
+      max_y_size = max(max_y_size, len(yp))
   
     x = np.array(x)
-    y = np.array([Align.add_padding(elem, max_y_size) for elem in y]) # adicionar padding no y no carregamento dos aligns
+    y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
     return x, y
