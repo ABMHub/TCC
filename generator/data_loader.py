@@ -7,89 +7,72 @@ from generator.batch_generator import BatchGenerator
 RANDOM_SEED = 42
 
 class DataConfig:
-  def __init__(self, data_dict : dict) -> None:
-    self.random_seed : int = data_dict["random_seed"]
-    self.val_size : float = data_dict["val_size"]
+  def __init__(self, data_dict : dict, split : dict, mode : str, videos_path : str, align_path : str) -> None:
+    self.mean, self.std = None, None
+    self.mode = mode
 
-    self.mean : np.ndarray = np.array(data_dict["mean"])
-    self.std : np.ndarray = np.array(data_dict["std"])
+    if data_dict is not None and self.mode in data_dict:
+      self.mean = np.array(data_dict["mean"])
+      self.std = np.array(data_dict["std"])
 
-    self.train : tuple[list[str]] = data_dict["train"]["videos"], data_dict["train"]["aligns"]
-    self.validation : tuple[list[str]] = data_dict["validation"]["videos"], data_dict["validation"]["aligns"]
+    train_split, val_split = split[mode]["train"], split[mode]["test"]
+    videos = [[os.path.join(videos_path, elem + ".npz") for elem in file_set] for file_set in [train_split, val_split]]
+    aligns = [[os.path.join(align_path, elem + ".align") for elem in file_set] for file_set in [train_split, val_split]]
+
+    self.train = (videos[0], aligns[0])
+    self.test = (videos[1], aligns[1])
 
   @staticmethod
-  def save_config(random_seed : int, val_size : float, mean : np.ndarray, std : np.ndarray, train_data : tuple[list[str]], validation_data : tuple[list[str]], file_path : str) -> None:
+  def save_config(mean : np.ndarray, std : np.ndarray, mode : str, file_path : str) -> None:
     json_dict = {
-      "random_seed": random_seed,
-      "val_size": val_size,
       "mean": list(mean),
       "std": list(std),
-      "train": {
-        "videos": train_data[0],
-        "aligns": train_data[1]
-      },
-      "validation": {
-        "videos": validation_data[0],
-        "aligns": validation_data[1]
-      }
     }
 
     if os.path.isfile(file_path):
       f = open(file_path, "r")
-      config_list = json.load(f)
+      config_dict = json.load(f)
       f.close()
 
     else:
-      config_list = []
+      config_dict = {}
 
-    config_list.append(json_dict)
+    config_dict[mode] = json_dict
     f = open(file_path, "w")
-    json.dump(config_list, f)
+    json.dump(config_dict, f)
     f.close()
 
-def get_training_data(videos_path : str, align_path : str, batch_size = 1, val_size : float = 0.2, validation_only = False):
+def get_training_data(videos_path : str, align_path : str, batch_size = 1, validation_only = False, unseen_speakers = False):
   config_file = os.path.join(videos_path, "config.json")
   config_exists = os.path.isfile(config_file)
+
+  split_file = "./splits.json"
+  split_exists = os.path.isfile(split_file)
   config = None
+
+  mode = "unseen" if unseen_speakers else "overlapped"
 
   if config_exists:
     f = open(config_file, "r")
-    config_list = json.load(f)
-
-    for config_dict in config_list:
-      if config_dict["random_seed"] == RANDOM_SEED and config_dict["val_size"] == val_size:
-        config = DataConfig(config_dict)
-        break
-
+    config = json.load(f)
     f.close()
         
-  if config is None:
-    file_names = os.listdir(videos_path)
-    if config_exists:
-      file_names.remove("config.json")
+  assert split_exists, "Split file not found"
 
-    random.seed(RANDOM_SEED)
-    random.shuffle(file_names)
+  f = open(split_file, "r")
+  split_dict = json.load(f)
+  f.close()
 
-    num_videos = len(file_names)
-    val_num = int(num_videos*(val_size))
+  dataconfig = DataConfig(config, split_dict, mode, videos_path, align_path)
 
-    val_files = file_names[:val_num]
-    train_files = file_names[val_num:]
+  if dataconfig.mean is None:
+    train = BatchGenerator(dataconfig.train, batch_size, training=True, mean_and_std=None)
+    val = BatchGenerator(dataconfig.test, batch_size, training=False, mean_and_std=(train.mean, train.std_var))
 
-    videos = [[os.path.join(videos_path, elem) for elem in file_set] for file_set in [train_files, val_files]]
-    aligns = [[os.path.join(align_path, ".".join(elem.split(".")[:-1]) + ".align") for elem in file_set] for file_set in [train_files, val_files]]  # get align files path list
-
-    train = BatchGenerator((videos[0], aligns[0]), batch_size, training=True, mean_and_std=None)
-    val = None if val_size is None or val_size == 0 else BatchGenerator((videos[1], aligns[1]), batch_size, training=False, mean_and_std=(train.mean, train.std_var))
-
-    DataConfig.save_config(RANDOM_SEED, val_size, train.mean, train.std_var, (videos[0], aligns[0]), (videos[1], aligns[1]), config_file)
+    DataConfig.save_config(train.mean, train.std_var, config_file)
 
   else:
-    train_data = config.train
-    validation_data = config.validation
-
-    train = None if validation_only else BatchGenerator(train_data, batch_size, training=True, mean_and_std=(config.mean, config.std))
-    val = None if val_size is None or val_size == 0 else BatchGenerator(validation_data, batch_size, training=False, mean_and_std=(config.mean, config.std))
+    train = None if validation_only else BatchGenerator(dataconfig.train, batch_size, training=True, mean_and_std=(dataconfig.mean, dataconfig.std))
+    val = BatchGenerator(dataconfig.test, batch_size, training=False, mean_and_std=(dataconfig.mean, dataconfig.std))
 
   return {"train": train, "validation": val}

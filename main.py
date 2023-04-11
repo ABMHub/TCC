@@ -19,6 +19,7 @@ def main():
 
   train.add_argument("-m", "--trained_model_path", required=False, help="Opção para continuar treinamento prévio. Caminho para o modelo previamente treinado.")
   train.add_argument("-l", "--logs_folder", required=False, help="Opção para salvar logs do tensorboard. Caminho para a pasta de logs.")
+  train.add_argument("-u", "--unseen_speakers", required=False, action="store_true", default=False, help='Opção para fazer testes com pessoas não vistas pelo treino')
   train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER", "WER" e "BLEU"')
   train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
   train.add_argument("-a", "--architecture", required=False, default = "lcanet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet].")
@@ -30,6 +31,7 @@ def main():
   test.add_argument("trained_model_path", help="Caminho para o modelo treinado.")
   test.add_argument("batch_size", help='Tamanho de cada batch para o teste.', type=int)
 
+  test.add_argument("-u", "--unseen_speakers", required=False, action="store_true", default=False, help='Opção para fazer testes com pessoas não vistas pelo treino')
   test.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
   test.add_argument("-s", "--save_results", required=False, action="store_true", default=False, help="Opção para salvar os resultados adquiridos na pasta do modelo.")
 
@@ -64,8 +66,8 @@ def main():
       x_path = args["dataset_path"],
       y_path = args["alignment_path"], 
       batch_size = args["batch_size"],
-      validation_slice = 0.2,
       validation_only = (mode == "test"),
+      unseen_speakers = args["unseen_speakers"]
     )
 
     if mode == "train":

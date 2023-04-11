@@ -96,7 +96,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
   def __init__(self, data : tuple, batch_size : int, training : bool, mean_and_std : tuple[np.ndarray, np.ndarray] = None) -> None:
     super().__init__()
 
-    random.seed(42)
+    random.seed(RANDOM_SEED)
 
     self.video_paths = data[0]
 

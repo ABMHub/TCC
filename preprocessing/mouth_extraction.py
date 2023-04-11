@@ -69,11 +69,6 @@ class FaceVideo:
     for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0):
       frame_obj.transform() 
 
-    # n_video = cv2.VideoWriter("./testetcc.avi", cv2.VideoWriter_fourcc(*"MJPG"), 25, tuple(reversed(self.frames[0].img.shape[0:2])))
-    # for frame in self.frames:
-    #   n_video.write(frame.img)
-    # n_video.release()
-
     self.mouth_imgs = np.array([cv2.resize(frame_obj.get_mouth_img(), (100, 50)) for frame_obj in tqdm.tqdm(self.frames, desc="Adquirindo recortes da boca", disable=self.verbose==0)])
 
     assert self.mouth_imgs.shape == (75, 50, 100, 3)

@@ -35,18 +35,17 @@ class LCANet():
 
   def load_model(self, path : str, inplace = True):
     K.clear_session()
-    model = tf.keras.models.load_model(path, compile=False)
-    self.__compile_model(model)
+    model = tf.keras.models.load_model(path)
 
-    if not inplace:
-      return model
+    if inplace:
+      self.model = model
 
-    self.model = model
+    return model
 
   def save_model(self, path : str):
     self.model.save(path)
 
-  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_slice : float = 0.2, validation_only = False):
+  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_only = False, unseen_speakers = False):
     """Carrega dados e geradores no objeto LCANet.
     As seeds dos geradores são fixas.
 
@@ -57,7 +56,7 @@ class LCANet():
         validation_slice (float, optional): porcentagem de dados separados para validação. Defaults to 0.2.
         validation_only (bool, optional): _description_. Defaults to False.
     """
-    self.data = get_training_data(x_path, y_path, batch_size = batch_size, val_size = validation_slice, validation_only = validation_only)
+    self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers)
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None) -> None:
     """Realiza o treinamento do modelo.
@@ -82,7 +81,7 @@ class LCANet():
         save_best_only=True
       )
       callback_list.append(model_checkpoint_callback)
-      callback_list.append(MinEarlyStopping(monitor="val_loss", patience=5, min_epoch=30))
+      callback_list.append(MinEarlyStopping(monitor="val_loss", patience=25, min_epoch=0))
 
     self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, verbose=1)
 
