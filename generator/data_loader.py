@@ -69,7 +69,7 @@ def get_training_data(videos_path : str, align_path : str, batch_size = 1, valid
     train = BatchGenerator(dataconfig.train, batch_size, training=True, mean_and_std=None)
     val = BatchGenerator(dataconfig.test, batch_size, training=False, mean_and_std=(train.mean, train.std_var))
 
-    DataConfig.save_config(train.mean, train.std_var, config_file)
+    DataConfig.save_config(train.mean, train.std_var, mode, config_file)
 
   else:
     train = None if validation_only else BatchGenerator(dataconfig.train, batch_size, training=True, mean_and_std=(dataconfig.mean, dataconfig.std))
