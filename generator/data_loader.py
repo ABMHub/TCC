@@ -12,8 +12,8 @@ class DataConfig:
     self.mode = mode
 
     if data_dict is not None and self.mode in data_dict:
-      self.mean = np.array(data_dict["mean"])
-      self.std = np.array(data_dict["std"])
+      self.mean = np.array(data_dict[mode]["mean"])
+      self.std = np.array(data_dict[mode]["std"])
 
     train_split, val_split = split[mode]["train"], split[mode]["test"]
     videos = [[os.path.join(videos_path, elem + ".npz") for elem in file_set] for file_set in [train_split, val_split]]

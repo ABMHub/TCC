@@ -2,7 +2,7 @@ import tensorflow as tf
 
 class CTCLoss(tf.keras.losses.Loss):
 
-    def __init__(self, name="ctc_loss"):
+    def __init__(self, name="ctc_loss", **kwargs):
         super().__init__(name=name)
 
     def call(self, y_true, y_pred):

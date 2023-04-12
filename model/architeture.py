@@ -35,7 +35,7 @@ class LCANet():
 
   def load_model(self, path : str, inplace = True):
     K.clear_session()
-    model = tf.keras.models.load_model(path)
+    model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss()})
 
     if inplace:
       self.model = model
