@@ -66,7 +66,7 @@ def main():
       x_path = args["dataset_path"],
       y_path = args["alignment_path"], 
       batch_size = args["batch_size"],
-      validation_only = (mode == "test"),
+      validation_only = False,#(mode == "test"),
       unseen_speakers = args["unseen_speakers"]
     )
 

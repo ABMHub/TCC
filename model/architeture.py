@@ -16,10 +16,17 @@ from model.callbacks import MinEarlyStopping
 from model.layers import Highway, CascadedAttention
 from generator.data_loader import get_training_data
 
+from model.decoder import NgramDecoder, decode_multiprocess_multiprocess
+
 class LCANet():
   def __init__(self, model_path : str = None, architecture : str = "LCANet"):
     self.model = None
     self.data = None
+
+    self.chars = dict()
+    self.chars[26] = " "
+    for i in range(26):
+      self.chars[i] = chr(i + 97)
 
     architectures = {
       "lcanet": self.__get_model_lcanet,
@@ -96,27 +103,31 @@ class LCANet():
     
     print("Realizando predições...")
     raw_pred = self.model.predict(self.data["validation"])
-    batch_size = len(raw_pred)
 
-    raw_pred = np.transpose(raw_pred, [1, 0, 2])
-    raw_pred = tf.math.log(raw_pred)
-    ret = tf.nn.ctc_beam_search_decoder(raw_pred, tf.fill([batch_size], 75), 200)
+    workers = 8
+    sections = []
+    section_size = len(raw_pred)/workers
+    for i in range(workers):
+      start = section_size * i
+      end = section_size + start
+      sections.append(raw_pred[int(round(start, 0)):int(round(end, 0))])
 
-    indexes = tf.unique_with_counts(tf.transpose(ret[0][0].indices)[0])[2].numpy()
+    strings = self.data["train"].get_strings()
+    result = decode_multiprocess_multiprocess(sections, workers, strings)
 
-    chars = dict()
-    chars[26] = " "
-    for i in range(26):
-      chars[i] = chr(i + 97)
-
-    prev = 0
     decoded = []
-    for i in range(len(indexes)):
-      pred = ret[0][0].values[prev:prev+indexes[i]]
-      decoded.append("".join([chars[elem] for elem in pred.numpy()]))
-      prev = prev + indexes[i]
+    for vec in result:
+      decoded += list(vec)
 
-    return decoded
+    sentences = []
+    for p in decoded:
+      sentence = []
+      for chr in p[0][0][1:-1]:
+        sentence.append(self.chars[int(chr)])
+
+      sentences.append("".join(sentence))
+
+    return sentences
 
   def evaluate_model(self, predictions = None, save_metrics_file_path : str = None) -> tuple[float, float, float]:
     assert self.data is not None

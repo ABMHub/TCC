@@ -1,7 +1,7 @@
 from typing import List
 import math
 
-SILENCE = ["sil"]
+SILENCE = ["sil", "sp"]
 
 class Align:
   def __init__(self, align_path : str):

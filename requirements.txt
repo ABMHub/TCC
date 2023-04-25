@@ -5,3 +5,5 @@ opencv-python==4.7.0.68
 tensorflow-gpu==2.10.1
 jiwer==2.5.1
 nltk==3.8.1
+torchaudio==2.0.1
+flashlight-text<=0.0.2
