@@ -4,6 +4,9 @@ import nltk
 
 from multiprocessing import Pool
 
+import numpy as np
+predictions = np.ndarray
+
 class NgramLM(CTCDecoderLM):
   """Create a Python wrapper around `language_model` to feed to the decoder."""
   def __init__(self, language_model):
@@ -63,9 +66,19 @@ class NgramDecoder: # salvar e carregar com pickle
   def __call__(self, preds : list[list[float]]):
     return self.decoder(torch.from_numpy(preds))
   
-def decode_multiprocess_multiprocess(sections, workers, strings):
-  pool = Pool(workers)
-  return pool.map(_f, list(zip(sections, [strings]*workers)))
+def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings : list[str] = None) -> list[list[int]]:
+  """_summary_
 
-def _f(a):
+  Args:
+      batches (list[predictions]): each element of the list will be processed in a different python process
+      workers (int): number of maximum simultaneous python processes
+      strings (list[str]): strings to train ngram model. If None, decoder will not use a language model
+
+  Returns:
+      list: list of dimensions [batch, prediction, letter_index]
+  """
+  pool = Pool(workers)
+  return pool.map(_decode_wrapper, list(zip(batches, [strings]*len(batches)))) # talvez usar o chunksize ao inves de passar batches
+
+def _decode_wrapper(a):
   return NgramDecoder(a[1], n=5)(a[0])

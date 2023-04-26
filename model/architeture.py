@@ -16,7 +16,7 @@ from model.callbacks import MinEarlyStopping
 from model.layers import Highway, CascadedAttention
 from generator.data_loader import get_training_data
 
-from model.decoder import NgramDecoder, decode_multiprocess_multiprocess
+from model.decoder import ctc_decode_multiprocess
 
 class LCANet():
   def __init__(self, model_path : str = None, architecture : str = "LCANet"):
@@ -113,7 +113,7 @@ class LCANet():
       sections.append(raw_pred[int(round(start, 0)):int(round(end, 0))])
 
     strings = self.data["train"].get_strings()
-    result = decode_multiprocess_multiprocess(sections, workers, strings)
+    result = ctc_decode_multiprocess(sections, workers, strings)
 
     decoded = []
     for vec in result:

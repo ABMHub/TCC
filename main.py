@@ -39,8 +39,8 @@ def main():
 
   preprocess.add_argument("dataset_path", help="Caminho para os vídeos crus. Caso a extração de bocas seja ignorada, é o caminho para os vídeos das bocas em .npz.")
   preprocess.add_argument("results_folder", help="Caminho para a pasta onde o dataset processado estará. Será criada a pasta npz_mouths e single_words")
-  preprocess.add_argument("-ss", "--single_words", required=False, help="Path para a pasta de alignments. Habilita extração de palavras soltas.")
-  preprocess.add_argument("-sm", "--skip_mouths", required=False, action="store_true", help="Opção para pular a extração de bocas.")
+  # preprocess.add_argument("-ss", "--single_words", required=False, help="Path para a pasta de alignments. Habilita extração de palavras soltas.")
+  # preprocess.add_argument("-sm", "--skip_mouths", required=False, action="store_true", help="Opção para pular a extração de bocas.")
 
   args = vars(ap.parse_args())
 
@@ -66,7 +66,7 @@ def main():
       x_path = args["dataset_path"],
       y_path = args["alignment_path"], 
       batch_size = args["batch_size"],
-      validation_only = False,#(mode == "test"),
+      validation_only = False,
       unseen_speakers = args["unseen_speakers"]
     )
 
@@ -96,21 +96,21 @@ def main():
 
   elif mode == "preprocess":
     from preprocessing.mouth_extraction import convert_all_videos_multiprocess
-    from preprocessing.single_words import slice_all_videos_multiprocess
+    # from preprocessing.single_words import slice_all_videos_multiprocess
 
     raw_video_path = args["dataset_path"]
     mouths_path = os.path.join(args["results_folder"], "npz_mouths")
-    single_words_path = os.path.join(args["results_folder"], "single_words")
-    alignments_path = args["single_words"]
+    # single_words_path = os.path.join(args["results_folder"], "single_words")
+    # alignments_path = args["single_words"]
 
-    if not args["skip_mouths"]:
-      convert_all_videos_multiprocess(raw_video_path, ".mpg", mouths_path)
+    # if not args["skip_mouths"]:
+    convert_all_videos_multiprocess(raw_video_path, ".mpg", mouths_path)
 
-    else:
-      mouths_path = raw_video_path
+    # else:
+      # mouths_path = raw_video_path
 
-    if alignments_path is not None:
-      slice_all_videos_multiprocess(mouths_path, alignments_path, "npz", single_words_path)
+    # if alignments_path is not None:
+      # slice_all_videos_multiprocess(mouths_path, alignments_path, "npz", single_words_path)
 
 if __name__ == '__main__':
 	main()
