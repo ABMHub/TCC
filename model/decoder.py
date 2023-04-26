@@ -7,6 +7,9 @@ from multiprocessing import Pool
 import numpy as np
 predictions = np.ndarray
 
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 class NgramLM(CTCDecoderLM):
   """Create a Python wrapper around `language_model` to feed to the decoder."""
   def __init__(self, language_model):
