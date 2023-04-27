@@ -77,11 +77,12 @@ class CascadedAttention(tf.keras.layers.Layer):
         batch_size = tf.shape(inputs)[0]
         prev_pred  = tf.constant([0]*(self.output_size-1) + [1]) # ultimo elemento eh o blank do ctc
         prev_state = self.gru.get_initial_state(batch_size=batch_size, dtype="float32")
+        transpose_inputs = tf.transpose(inputs, [1, 0, 2])
         output = []
 
         for t in range(self.timesteps):
             context_vector = self.att(inputs, prev_state, t)
-            prev_pred, prev_state = self.gru(context_vector, prev_pred, prev_state)
+            prev_pred, prev_state = self.gru(context_vector, prev_pred, transpose_inputs[t-1] if t >= 0 else prev_state)
             output.append(prev_pred)
 
         output = tf.convert_to_tensor(output, dtype=tf.float32)
