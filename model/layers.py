@@ -81,7 +81,7 @@ class CascadedAttention(tf.keras.layers.Layer):
         output = []
 
         for t in range(self.timesteps):
-            context_vector = self.att(inputs, K.tanh(prev_pred))
+            context_vector = self.att(inputs, K.sigmoid(prev_pred))
             prev_pred = self.gru(context_vector, prev_pred, transpose_inputs[t-1] if t >= 0 else prev_state)
             output.append(prev_pred)
 
@@ -107,9 +107,7 @@ class CascadedAttentionCell(tf.keras.layers.Layer):
         self.Wa  = self.add_weight(name='recurrent_attention_cell_weight',  shape=(self.output_size, self.output_size), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Ua  = self.add_weight(name='attention_cell_weight',            shape=(dim, self.output_size),              initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Va  = self.add_weight(name='attention_cell_score_weight',      shape=(self.output_size, 1),                initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba1 = self.add_weight(name='attention_cell_bias2',             shape=(1, self.output_size),                initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba2 = self.add_weight(name='attention_cell_bias1',             shape=(timesteps, self.output_size),        initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba3 = self.add_weight(name='attention_cell_bias3',             shape=(timesteps, 1),                       initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Ba = self.add_weight(name='attention_cell_bias2',             shape=(1, self.output_size),                initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
         super(CascadedAttentionCell, self).build(input_shape)
 
@@ -124,16 +122,16 @@ class CascadedAttentionCell(tf.keras.layers.Layer):
             context_vector: tensor of shape [batch_size, dim]
         """
         state_temp = K.expand_dims(prev_state, -2)
-        WaS = tf.matmul(state_temp, self.Wa) + self.Ba1
+        WaS = tf.matmul(state_temp, self.Wa)
 
-        UaH = tf.matmul(inputs, self.Ua) + self.Ba2
+        UaH = tf.matmul(inputs, self.Ua)
 
         # WaS shape:       [batch,        1, output_size]
         # UaH shape:       [batch, timestep, output_size]
         # UaH + WaS shape: [batch, timestep, output_size]
 
-        scores = K.tanh(UaH + WaS)
-        scores = tf.matmul(scores, self.Va) + self.Ba3
+        scores = K.tanh(UaH + WaS + self.Ba)
+        scores = tf.matmul(scores, self.Va)
 
         # scores shape: [batch, timestep, 1]
 
@@ -149,17 +147,11 @@ class CascadedGruCell(tf.keras.layers.Layer):
  
     def build(self, input_shape):
         feature_count = input_shape[-1]
-        self.gru = tf.keras.layers.GRUCell(feature_count)
-        self.gru.build(feature_count)
-
         self.Wo  = self.add_weight(name='recurrent_gru_cell_weight',  shape=(self.output_size, 1),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Uo  = self.add_weight(name='cascaded_gru_cell_weight',            shape=(feature_count, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         self.Co  = self.add_weight(name='context_cascaded_gru_cell_weight',            shape=(feature_count, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
-        self.Bo1  = self.add_weight(name='cascaded_gru_cell_bias1',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Bo2  = self.add_weight(name='cascaded_gru_cell_bias2',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Bo3  = self.add_weight(name='cascaded_gru_cell_bias3',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Bo4  = self.add_weight(name='cascaded_gru_cell_bias4',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.Bo  = self.add_weight(name='cascaded_gru_cell_bias1',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
         self.emb  = self.add_weight(name='recurrent_gru_cell_weight_emb',  shape=(self.output_size, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
         super(CascadedGruCell, self).build(input_shape)
@@ -181,19 +173,19 @@ class CascadedGruCell(tf.keras.layers.Layer):
         WoY = K.squeeze(WoY, 1)
 
         prev_state = K.expand_dims(prev_state, 1)
-        UoH = tf.matmul(prev_state, self.Uo) + self.Bo2
+        UoH = tf.matmul(prev_state, self.Uo)
         UoH = K.squeeze(UoH, 1)
 
         context_vector = K.expand_dims(context_vector, 1)
-        CoC = tf.matmul(context_vector, self.Co) + self.Bo3
+        CoC = tf.matmul(context_vector, self.Co)
         CoC = K.squeeze(CoC, 1)
 
         # WoY, UoH, CoC shape: [batch, 28]
 
-        pred = WoY + UoH + CoC + self.Bo4
+        pred = WoY + UoH + CoC + self.Bo
 
         return pred
     
-    def get_initial_state(self, *args, **kwargs):
-        return self.gru.get_initial_state(*args, **kwargs)
+    def get_initial_state(self, batch_size, dtype):
+        return tf.zeros([batch_size, self.output_size], dtype=dtype)
     

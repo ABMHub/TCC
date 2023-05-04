@@ -182,7 +182,8 @@ class LCANet():
     model = Highway()(model)
     model = Highway()(model)
 
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
 
     model = CascadedAttention(28)(model)
     model = tf.keras.layers.Activation("softmax")(model)
