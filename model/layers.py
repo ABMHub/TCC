@@ -48,7 +48,6 @@ class Highway(tf.keras.layers.Layer):
         config['transform_gate_bias'] = self.transform_gate_bias
         return config
 
-# Add attention layer to the deep learning network
 class CascadedAttention(tf.keras.layers.Layer):
     def __init__(self, output_size : int, **kwargs):
         super(CascadedAttention, self).__init__(**kwargs)
@@ -189,3 +188,57 @@ class CascadedGruCell(tf.keras.layers.Layer):
     def get_initial_state(self, batch_size, dtype):
         return tf.zeros([batch_size, self.output_size], dtype=dtype)
     
+class LipformerEncoder(tf.keras.layers.Layer):
+    def __init__(self, output_size, **kwargs):
+        super(CascadedGruCell, self).__init__(**kwargs)
+        self.output_size = output_size
+ 
+    def build(self, input_shape):
+        self.timesteps = input_shape[1]
+        self.dim = input_shape[2]
+
+        self.att_vis = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
+        self.att_land = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
+        self.cross_att_vis = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
+        self.cross_att_land = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
+        self.ffn = tf.keras.layers.Dense(self.output_size)
+        super(CascadedGruCell, self).build(input_shape)
+
+    def call(self, visual_features, landmark_features):
+        vis_out = self.att_vis(query=visual_features, value=visual_features, key=visual_features)
+        land_out = self.att_land(query=landmark_features, value=landmark_features, key=landmark_features)
+        cross_vis_out = self.cross_att_vis(query=vis_out, value=land_out, key=land_out)
+        cross_land_out = self.cross_att_land(query=land_out, value=vis_out, key=vis_out)
+
+        return self.ffn(cross_vis_out + cross_land_out)
+    
+    def get_config(self):
+        config = super().get_config()
+        config['output_size'] = self.output_size
+        config['timesteps'] = self.timesteps
+        config['dim'] = self.dim
+        return config
+    
+# from the paper "CBAM: Convolutional Block Attention Module"
+class ChannelAttention(tf.keras.layers.Layer):
+    def __init__(self, ratio = 16, **kwargs):
+        self.ratio = ratio
+        super(CascadedGruCell, self).__init__(**kwargs)
+ 
+    def build(self, input_shape):
+        self.dim = input_shape[2]
+
+        self.ffn1 = tf.keras.layers.Dense(self.dim // self.ratio, activation="relu")
+        self.ffn2 = tf.keras.layers.Dense(self.dim)
+        super(CascadedGruCell, self).build(input_shape)
+
+    def _mlp(self, inputs):
+        return self.ffn2(self.ffn1(inputs))
+
+    def call(self, inputs):
+        max_out = tf.keras.layers.GlobalMaxPool3D()(inputs)
+        avg_out = tf.keras.layers.GlobalAvgPool3D()(inputs)
+
+        mlp_out = K.sigmoid(self._mlp(max_out) + self._mlp(avg_out))
+
+        return mlp_out

@@ -32,6 +32,7 @@ class LCANet():
       "lcanet": self.__get_model_lcanet,
       "lipnet": self.__get_model_lipnet,
       "blstm":  self.__get_model_3D_2D_BLSTM,
+      # "lipformer": self.__get_model_lipformer,
     }
 
     if model_path is None:
@@ -269,6 +270,17 @@ class LCANet():
     self.__compile_model(model)
 
     return model
+  
+  # def __get_model_lipformer(self):
+  #   input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
+
+  #   model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(input)
+  #   model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
+  #   model = tf.keras.layers.BatchNormalization()(model)
+  #   model = tf.keras.layers.Activation("relu")(model)
+  #   model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+  #   model = tf.keras.layers.SpatialDropout3D(0.5)(model)
+    
   
   def __compile_model(self, model : tf.keras.Model):
     model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
