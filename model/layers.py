@@ -1,4 +1,3 @@
-
 from keras import backend as K
 import tensorflow as tf
 
@@ -190,19 +189,20 @@ class CascadedGruCell(tf.keras.layers.Layer):
     
 class LipformerEncoder(tf.keras.layers.Layer):
     def __init__(self, output_size, **kwargs):
-        super(CascadedGruCell, self).__init__(**kwargs)
+        super(LipformerEncoder, self).__init__(**kwargs)
         self.output_size = output_size
  
     def build(self, input_shape):
         self.timesteps = input_shape[1]
         self.dim = input_shape[2]
+        self.timesteps = 1
 
         self.att_vis = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
         self.att_land = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
         self.cross_att_vis = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
         self.cross_att_land = tf.keras.layers.MultiHeadAttention(self.timesteps, self.dim, self.dim)
         self.ffn = tf.keras.layers.Dense(self.output_size)
-        super(CascadedGruCell, self).build(input_shape)
+        super(LipformerEncoder, self).build(input_shape)
 
     def call(self, visual_features, landmark_features):
         vis_out = self.att_vis(query=visual_features, value=visual_features, key=visual_features)
@@ -223,14 +223,14 @@ class LipformerEncoder(tf.keras.layers.Layer):
 class ChannelAttention(tf.keras.layers.Layer):
     def __init__(self, ratio = 16, **kwargs):
         self.ratio = ratio
-        super(CascadedGruCell, self).__init__(**kwargs)
+        super(ChannelAttention, self).__init__(**kwargs)
  
     def build(self, input_shape):
-        self.dim = input_shape[2]
+        self.dim = input_shape[1]
 
         self.ffn1 = tf.keras.layers.Dense(self.dim // self.ratio, activation="relu")
         self.ffn2 = tf.keras.layers.Dense(self.dim)
-        super(CascadedGruCell, self).build(input_shape)
+        super(ChannelAttention, self).build(input_shape)
 
     def _mlp(self, inputs):
         return self.ffn2(self.ffn1(inputs))
@@ -242,3 +242,9 @@ class ChannelAttention(tf.keras.layers.Layer):
         mlp_out = K.sigmoid(self._mlp(max_out) + self._mlp(avg_out))
 
         return mlp_out
+    
+    def get_config(self):
+        config = super().get_config()
+        config['ratio'] = self.ratio
+        config['dim'] = self.dim
+        return config

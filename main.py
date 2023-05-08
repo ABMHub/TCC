@@ -60,7 +60,7 @@ def main():
 
     if mode == "train":
       architecture = args["architecture"].lower()
-      assert architecture in ["lcanet", "lipnet", "blstm"], f"Arquitetura {architecture} não implementada"
+      assert architecture in ["lcanet", "lipnet", "blstm", "lipformer"], f"Arquitetura {architecture} não implementada"
       
       checkpoint_path = args["save_model_path"] + "_best"
 
@@ -70,7 +70,8 @@ def main():
       y_path = args["alignment_path"], 
       batch_size = args["batch_size"],
       validation_only = False,
-      unseen_speakers = args["unseen_speakers"]
+      unseen_speakers = args["unseen_speakers"],
+      landmark_features = args["architecture"] == "lipformer",
     )
 
     if mode == "train":

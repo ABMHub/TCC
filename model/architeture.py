@@ -10,10 +10,11 @@ import os
 absl.logging.set_verbosity(absl.logging.ERROR)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
+from keras import backend as K
 
 from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping
-from model.layers import Highway, CascadedAttention
+from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention
 from generator.data_loader import get_training_data
 
 from model.decoder import ctc_decode_multiprocess
@@ -32,7 +33,7 @@ class LCANet():
       "lcanet": self.__get_model_lcanet,
       "lipnet": self.__get_model_lipnet,
       "blstm":  self.__get_model_3D_2D_BLSTM,
-      # "lipformer": self.__get_model_lipformer,
+      "lipformer": self.__get_model_lipformer,
     }
 
     if model_path is None:
@@ -53,7 +54,7 @@ class LCANet():
   def save_model(self, path : str):
     self.model.save(path)
 
-  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_only = False, unseen_speakers = False):
+  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_only : bool = False, unseen_speakers : bool = False, landmark_features : bool = False):
     """Carrega dados e geradores no objeto LCANet.
     As seeds dos geradores são fixas.
 
@@ -64,7 +65,7 @@ class LCANet():
         validation_slice (float, optional): porcentagem de dados separados para validação. Defaults to 0.2.
         validation_only (bool, optional): _description_. Defaults to False.
     """
-    self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers)
+    self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers, landmark_features = landmark_features)
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None) -> None:
     """Realiza o treinamento do modelo.
@@ -271,16 +272,54 @@ class LCANet():
 
     return model
   
-  # def __get_model_lipformer(self):
-  #   input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
+  def __get_model_lipformer(self):
+    visual_input = tf.keras.layers.Input(shape=(75, 160, 80, 3), name="visual_input")
+    landmark_input = tf.keras.layers.Input(shape=(75, 340), name="landmark_input")
 
-  #   model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(input)
-  #   model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(model)
-  #   model = tf.keras.layers.BatchNormalization()(model)
-  #   model = tf.keras.layers.Activation("relu")(model)
-  #   model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
-  #   model = tf.keras.layers.SpatialDropout3D(0.5)(model)
+    visual_model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(visual_input)
+    visual_model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(visual_model)
+    visual_model = tf.keras.layers.BatchNormalization()(visual_model)
+    visual_model = tf.keras.layers.Activation("relu")(visual_model)
+    visual_model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(visual_model)
+    visual_model = tf.keras.layers.SpatialDropout3D(0.5)(visual_model)
+
+    visual_model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(visual_model)
+    visual_model = tf.keras.layers.Conv3D(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1))(visual_model)
+    visual_model = tf.keras.layers.BatchNormalization()(visual_model)
+    visual_model = tf.keras.layers.Activation("relu")(visual_model)
+    visual_model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(visual_model)
+    visual_model = tf.keras.layers.SpatialDropout3D(0.5)(visual_model)
+
+    visual_model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(visual_model)
+    visual_model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1))(visual_model)
+    visual_model = tf.keras.layers.BatchNormalization()(visual_model)
+    visual_model = tf.keras.layers.Activation("relu")(visual_model)
+    visual_model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(visual_model)
+    visual_model = tf.keras.layers.SpatialDropout3D(0.5)(visual_model)
+
+    ch_att_output = ChannelAttention(16)(visual_model)
+    visual_model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(visual_model)
+
+    visual_model = visual_model * K.expand_dims(ch_att_output)
+
+    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(visual_model)
+    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(visual_model)
+
+    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(landmark_input)
+    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(landmark_model)
     
+    model = LipformerEncoder(256)(visual_model, landmark_model)
+
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+
+    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28))(model)
+    model = tf.keras.layers.Activation("softmax")(model)
+
+    model = tf.keras.Model([visual_input, landmark_input], model)
+    self.__compile_model(model)
+    
+    return model
   
   def __compile_model(self, model : tf.keras.Model):
     model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())

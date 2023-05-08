@@ -39,7 +39,7 @@ def __video_class_wrapper(args):
   except (IndexError, TypeError, AssertionError) as err:
     print(f"Video {orig} com erro\n{err}")
 
-def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[int] = (100, 50), verbose = 1, numpy_file = True, process_count = 12, landmark_features = False, ):
+def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[int] = (100, 50), verbose = 1, numpy_file = True, process_count = 12, landmark_features = False):
   print("Localizando todos os vídeos...")
   orig_dest_videos = get_all_videos(path, extension, dest_folder)
   dest_extension = ".npz" if numpy_file else ".avi"
@@ -49,7 +49,7 @@ def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[
   pool = Pool(processes=process_count)
   args = []
   for orig in orig_dest_videos:
-    if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
+    if not os.path.isfile(orig_dest_videos[orig] + dest_extension) or (landmark_features and not os.path.isfile(orig_dest_videos[orig].replace("npz_mouths", "landmark_features") + dest_extension)):
       args.append((orig, verbose, orig_dest_videos[orig], landmark_features, shape))
 
   [None for _ in tqdm.tqdm(pool.imap_unordered(__video_class_wrapper, args), desc="Convertendo Video", disable=verbose<=0, total=len(orig_dest_videos), initial=len(orig_dest_videos) - len(args))]
