@@ -20,7 +20,7 @@ from generator.data_loader import get_training_data
 from model.decoder import ctc_decode_multiprocess
 
 class LCANet():
-  def __init__(self, model_path : str = None, architecture : str = "LCANet"):
+  def __init__(self, model_path : str = None, architecture : str = "LCANet", multi_gpu = False):
     self.model = None
     self.data = None
 
@@ -37,10 +37,18 @@ class LCANet():
     }
 
     if model_path is None:
-      self.model = architectures[architecture.lower()]()
+      if multi_gpu:
+        with tf.distribute.MirroredStrategy().scope():
+          self.model = architectures[architecture.lower()]()
+      else:
+        self.model = architectures[architecture.lower()]()
 
     else:
-      self.load_model(model_path)
+      if multi_gpu:
+        with tf.distribute.MirroredStrategy().scope():
+          self.load_model(model_path)
+      else:
+        self.load_model(model_path)
 
   def load_model(self, path : str, inplace = True):
     K.clear_session()
