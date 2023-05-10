@@ -54,7 +54,7 @@ def main():
 
     multi_gpu = False
     if args["choose_gpu"] is not None:
-      if int(args["choose_gpu"]) >= 0:
+      if int(args["choose_gpu"]) < 0:
         multi_gpu = True
       else:
         os.environ["CUDA_VISIBLE_DEVICES"]=f"{args['choose_gpu']}"
