@@ -52,8 +52,12 @@ def main():
   if mode == "train" or mode == "test":
     from model.architeture import LCANet
 
+    multi_gpu = False
     if args["choose_gpu"] is not None:
-      os.environ["CUDA_VISIBLE_DEVICES"]=f"{args['choose_gpu']}"
+      if int(args["choose_gpu"]) >= 0:
+        multi_gpu = True
+      else:
+        os.environ["CUDA_VISIBLE_DEVICES"]=f"{args['choose_gpu']}"
 
     checkpoint_path = None
     architecture = "lcanet"
@@ -64,7 +68,8 @@ def main():
       
       checkpoint_path = args["save_model_path"] + "_best"
 
-    model = LCANet(args["trained_model_path"], architecture=architecture)
+    model = LCANet(args["trained_model_path"], architecture=architecture, multi_gpu = multi_gpu)
+
     model.load_data(
       x_path = args["dataset_path"],
       y_path = args["alignment_path"], 
