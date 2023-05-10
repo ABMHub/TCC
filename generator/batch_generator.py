@@ -175,10 +175,10 @@ class BatchGenerator(tf.keras.utils.Sequence):
     return dataset_mean, dataset_std    
   
   def __get_std_params_landmarks(self):
-    pbar = tqdm.tqdm(desc='Calculando media e desvio padrão das landmark features', total=len(self.lm_data)*2, disable=False)
+    pbar = tqdm.tqdm(desc='Calculando media e desvio padrão das landmark features', total=len(self.data)*2, disable=False)
     lm_mean = []
-    for i in range(len(self.lm_data)):
-      data = VideoData(None, None, False, 0, 1, self.lm_data[i], self.lm_mean, self.lm_std_var).load_landmark()
+    for i in range(len(self.data)):
+      data = VideoData(None, None, False, 0, 1, self.data[i][2], self.lm_mean, self.lm_std_var).load_landmark()
       lm_mean.append(np.mean(data))
       pbar.update()
 
@@ -187,12 +187,12 @@ class BatchGenerator(tf.keras.utils.Sequence):
     dataset_mean = np.mean(lm_mean, axis=0) # a media nao esta exata. o ultimo batch eh menor
     dataset_std = 0
 
-    for i in range(len(self.lm_data)):
-      data = VideoData(None, None, False, 0, 1, self.lm_data[i], self.lm_mean, self.lm_std_var).load_landmark()
+    for i in range(len(self.data)):
+      data = VideoData(None, None, False, 0, 1, self.data[i][2], self.lm_mean, self.lm_std_var).load_landmark()
       dataset_std += np.sum(np.square(data - dataset_mean))
       pbar.update()
 
-    dataset_std = np.sqrt(dataset_std/(len(self.lm_data)*shape[0]*shape[1]))
+    dataset_std = np.sqrt(dataset_std/(len(self.data)*shape[0]*shape[1]))
     pbar.close()
 
     print(f"Landmarks\nMédia: {dataset_mean}\nDesvio Padrão: {dataset_std}")
