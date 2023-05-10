@@ -14,7 +14,7 @@ from keras import backend as K
 
 from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping
-from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention
+from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipformerCharacterDecoder
 from generator.data_loader import get_training_data
 
 from model.decoder import ctc_decode_multiprocess
@@ -310,16 +310,12 @@ class LCANet():
     
     model = LipformerEncoder(256)(visual_model, landmark_model)
 
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
-
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28))(model)
-    model = tf.keras.layers.Activation("softmax")(model)
+    model = LipformerCharacterDecoder(28)(model)
 
     model = tf.keras.Model([visual_input, landmark_input], model)
-    self.__compile_model(model)
+    self.__compile_model(model, learning_rate=3e-4)
     
     return model
   
-  def __compile_model(self, model : tf.keras.Model):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=1e-4), loss=CTCLoss())
+  def __compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
