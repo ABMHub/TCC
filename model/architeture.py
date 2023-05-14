@@ -316,9 +316,13 @@ class LCANet():
     landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(landmark_input)
     landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(landmark_model)
     
-    model = LipformerEncoder(256)(visual_model, landmark_model)
+    model = LipformerEncoder(512)(visual_model, landmark_model)
 
-    model = LipformerCharacterDecoder(28)(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    # model = TransformerDecoder(256, 8)(model)
+
+    model = tf.keras.layers.Dense(28, activation="softmax")(model)
 
     model = tf.keras.Model([visual_input, landmark_input], model)
     self.__compile_model(model, learning_rate=3e-4)
