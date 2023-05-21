@@ -23,7 +23,6 @@ class DataConfig:
     self.train = (videos[0], aligns[0])
     self.test = (videos[1], aligns[1])
 
-    print(landmark_features)
     if landmark_features is not None:
       lms_train = [p.replace("npz_mouths", "landmark_features") for p in videos[0]]
       lms_test = [p.replace("npz_mouths", "landmark_features") for p in videos[1]]
@@ -85,7 +84,6 @@ def get_training_data(videos_path : str, align_path : str, batch_size = 1, valid
 
   landmark_dict = None
   if landmark_features:
-    print(config_file)
     landmark_config_file = config_file.replace("npz_mouths", "landmark_features")
     if os.path.isfile(landmark_config_file):
       f = open(landmark_config_file, "r")

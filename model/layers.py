@@ -201,7 +201,8 @@ class LipformerEncoder(tf.keras.layers.Layer):
         self.att_land = tf.keras.layers.Attention()
         self.cross_att_vis = tf.keras.layers.Attention()
         self.cross_att_land = tf.keras.layers.Attention()
-        self.ffn = tf.keras.layers.Dense(self.output_size)
+        self.ffn1 = tf.keras.layers.Dense(self.dim, activation="relu")
+        self.ffn2 = tf.keras.layers.Dense(self.output_size)
         super(LipformerEncoder, self).build(input_shape)
 
     def call(self, visual_features, landmark_features):
@@ -210,7 +211,7 @@ class LipformerEncoder(tf.keras.layers.Layer):
         cross_vis_out = self.cross_att_vis([vis_out, land_out, land_out])
         cross_land_out = self.cross_att_land([land_out, vis_out, vis_out])
 
-        return self.ffn(cross_vis_out + cross_land_out)
+        return self.ffn2(self.ffn1(cross_vis_out + cross_land_out))
     
     def get_config(self):
         config = super().get_config()
@@ -256,12 +257,16 @@ class LipformerCharacterDecoder(tf.keras.layers.Layer):
  
     def build(self, input_shape): # [batch, timesteps, features]
         self.timesteps = input_shape[1]
-        self.gru1 = tf.keras.layers.GRU(128, return_sequences=True)
-        self.gru2 = tf.keras.layers.GRUCell(128)
+        self.gru_vme = tf.keras.layers.GRU(256, return_sequences=True)
+        self.gru_pd = tf.keras.layers.GRUCell(256)
 
-        self.ffn1 = tf.keras.layers.Dense(64)
-        self.ffn2 = tf.keras.layers.Dense(self.output_size)
+        # self.ffn1 = tf.keras.layers.Dense(512)
+        # self.ffn2 = tf.keras.layers.Dense(128)
         self.ffn3 = tf.keras.layers.Dense(self.output_size)
+
+        self.attt = tf.keras.layers.Attention()
+
+        self.flatten = tf.keras.layers.Flatten()
 
         self.emb  = self.add_weight(name='recurrent_gru_cell_weight_emb',  shape=(self.output_size, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
@@ -278,22 +283,25 @@ class LipformerCharacterDecoder(tf.keras.layers.Layer):
         """
         batch_size = tf.shape(inputs)[0]
         prev_pred  = tf.zeros([batch_size, self.output_size])
-        prev_state = self.gru2.get_initial_state(batch_size=batch_size, dtype=tf.float32)
+        prev_state = self.gru_pd.get_initial_state(batch_size=batch_size, dtype=tf.float32)
         output = []
 
-        out_gru = self.gru1(inputs)      
+        out_gru = self.gru_vme(inputs)      
         out_gru_t = tf.transpose(out_gru, [1, 0, 2])
+        # out_gru_f = self.flatten(out_gru)
 
         for t in range(self.timesteps):
             emb_out = K.expand_dims(K.softmax(prev_pred), -1) * self.emb
             emb_out = K.sum(emb_out, 1)
 
-            prev_state = self.gru2(emb_out, prev_state)[0]
+            prev_state = self.gru_pd(emb_out, prev_state)[0]
+            context = prev_state * self.attt([out_gru_t[t], prev_state])
 
-            concat = tf.concat([out_gru_t[t], prev_state], 1)
-            att = K.softmax(self.ffn2(K.tanh(self.ffn1(concat))))
+            # concat = tf.concat([out_gru_f, prev_state], 1)
+            # att = K.softmax(self.ffn2(K.tanh(self.ffn1(concat))))
+            # att = self.attt(prev_state, out_gru_t[t])
 
-            prev_pred = K.softmax(self.ffn3(concat)*att)
+            prev_pred = K.softmax(self.ffn3(tf.concat([prev_state, context], 1)))
             output.append(prev_pred)
 
         output = tf.convert_to_tensor(output, dtype=tf.float32)
