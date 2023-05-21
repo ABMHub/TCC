@@ -57,11 +57,14 @@ class CascadedAttention(tf.keras.layers.Layer):
     def build(self, input_shape): # [batch, timesteps, features]
         self.timesteps = input_shape[1]
         
-        self.att = CascadedAttentionCell(self.output_size)
-        self.att.build(input_shape)
+        # self.att = CascadedAttentionCell(self.output_size)
+        self.att = tf.keras.layers.AdditiveAttention()
+        # self.att.build(input_shape)
 
         self.gru = CascadedGruCell(self.output_size)
         self.gru.build(input_shape)
+
+        self.d = tf.keras.layers.Dense(28, "softmax")
 
         super(CascadedAttention, self).build(input_shape)
  
@@ -80,9 +83,11 @@ class CascadedAttention(tf.keras.layers.Layer):
         output = []
 
         for t in range(self.timesteps):
-            context_vector = self.att(inputs, K.sigmoid(prev_state))
-            prev_state = self.gru(context_vector, prev_state, t)
-            output.append(prev_state)
+            context_vector = K.squeeze(self.att([K.expand_dims(prev_state, 1), inputs]), 1)
+            print(context_vector)
+            prev_state = self.gru(context_vector, prev_state, prev_pred, t)
+            prev_pred = self.d(prev_state)
+            output.append(prev_pred)
 
         output = tf.convert_to_tensor(output, dtype=tf.float32)
         output = tf.transpose(output, [1, 0, 2])
@@ -130,7 +135,7 @@ class CascadedAttentionCell(tf.keras.layers.Layer):
         # UaH + WaS shape: [batch, timestep, output_size]
 
         scores = K.tanh(UaH + WaS + self.Ba)
-        scores = tf.matmul(scores, self.Va)
+        scores = K.relu(tf.matmul(scores, self.Va))
 
         # scores shape: [batch, timestep, 1]
 
@@ -152,13 +157,13 @@ class CascadedGruCell(tf.keras.layers.Layer):
 
         # self.Bo  = self.add_weight(name='cascaded_gru_cell_bias1',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
 
-        self.emb  = tf.keras.layers.Embedding(29, 28)
+        self.emb  = tf.keras.layers.Embedding(29, 512)
 
         self.gru = ContextGRU(self.output_size)
         self.gru.build(input_shape)
         super(CascadedGruCell, self).build(input_shape)
 
-    def call(self, context_vector, prev_state, t):
+    def call(self, context_vector, prev_state, prev_pred, t):
         """_summary_
 
         Args:
@@ -174,7 +179,7 @@ class CascadedGruCell(tf.keras.layers.Layer):
             a = tf.zeros([batch_size, 1])
             emb_out = self.emb(a)
         else:
-            prev_y = K.expand_dims(K.argmax(prev_state), -1)
+            prev_y = K.expand_dims(K.argmax(prev_pred), -1)
             emb_out = self.emb(prev_y + 1)
 
         emb_out = K.squeeze(emb_out, -2)
@@ -190,12 +195,12 @@ class CascadedGruCell(tf.keras.layers.Layer):
         return h
     
     def get_initial_state(self, batch_size, dtype):
-        return tf.zeros([batch_size, self.output_size], dtype=dtype)
+        return tf.zeros([batch_size, 512], dtype=dtype)
     
 class ContextGRU(tf.keras.layers.Layer):
     def __init__(self, output_size, **kwargs):
         super(ContextGRU, self).__init__(**kwargs)
-        self.output_size = output_size
+        self.output_size = 512
 
     def build(self, input_shape):
         self.feature_count = input_shape[-1]
@@ -219,7 +224,7 @@ class ContextGRU(tf.keras.layers.Layer):
     def call(self, inputs, context_vector, prev_state):
         z = K.sigmoid(K.dot(inputs,self.Wz) + K.dot(prev_state, self.Uz) + K.dot(context_vector, self.Cz) + self.bz)
         r = K.sigmoid(K.dot(inputs,self.Wr) + K.dot(prev_state, self.Ur) + K.dot(context_vector, self.Cr) + self.br)
-        hh = K.dot(inputs,self.Wh) + K.dot((prev_state * r), self.Uh) + K.dot(context_vector, self.Ch)
+        hh = K.tanh(K.dot(inputs,self.Wh) + K.dot((prev_state * r), self.Uh) + K.dot(context_vector, self.Ch))
         h = (1 - z) * hh + z * prev_state
 
         return h
