@@ -64,7 +64,7 @@ class CascadedAttention(tf.keras.layers.Layer):
         self.gru = CascadedGruCell(self.output_size)
         self.gru.build(input_shape)
 
-        self.d = tf.keras.layers.Dense(28, "softmax")
+        self.d = tf.keras.layers.Dense(28)
 
         super(CascadedAttention, self).build(input_shape)
  
@@ -84,7 +84,6 @@ class CascadedAttention(tf.keras.layers.Layer):
 
         for t in range(self.timesteps):
             context_vector = K.squeeze(self.att([K.expand_dims(prev_state, 1), inputs]), 1)
-            print(context_vector)
             prev_state = self.gru(context_vector, prev_state, prev_pred, t)
             prev_pred = self.d(prev_state)
             output.append(prev_pred)

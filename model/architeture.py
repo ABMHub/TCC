@@ -188,7 +188,7 @@ class LCANet():
     model = CascadedAttention(28)(model)
 
     # model = tf.keras.layers.Dense(28)(model)
-    # model = tf.keras.layers.Activation("softmax")(model)
+    model = tf.keras.layers.Activation("softmax")(model)
 
     model = tf.keras.Model(input, model)
     self.__compile_model(model)
