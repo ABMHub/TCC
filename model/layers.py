@@ -227,10 +227,11 @@ class ContextGRU(tf.keras.layers.Layer):
         return h
     
 class LipformerEncoder(tf.keras.layers.Layer):
-    def __init__(self, output_size, **kwargs):
+    def __init__(self, hidden_output_size, output_size, **kwargs):
         super(LipformerEncoder, self).__init__(**kwargs)
         self.output_size = output_size
- 
+        self.hidden_output_size = hidden_output_size
+
     def build(self, input_shape):
         self.timesteps = input_shape[1]
         self.dim = input_shape[2]
@@ -240,7 +241,7 @@ class LipformerEncoder(tf.keras.layers.Layer):
         self.att_land = tf.keras.layers.Attention()
         self.cross_att_vis = tf.keras.layers.Attention()
         self.cross_att_land = tf.keras.layers.Attention()
-        self.ffn1 = tf.keras.layers.Dense(self.dim, activation="relu")
+        self.ffn1 = tf.keras.layers.Dense(self.hidden_output_size, activation="relu")
         self.ffn2 = tf.keras.layers.Dense(self.output_size)
         super(LipformerEncoder, self).build(input_shape)
 
@@ -251,7 +252,7 @@ class LipformerEncoder(tf.keras.layers.Layer):
         cross_land_out = self.cross_att_land([land_out, vis_out, vis_out])
 
         return self.ffn2(self.ffn1(cross_vis_out + cross_land_out))
-    
+
     def get_config(self):
         config = super().get_config()
         config['output_size'] = self.output_size

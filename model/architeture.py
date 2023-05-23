@@ -292,14 +292,14 @@ class LipReadingModel():
     landmark_input = tf.keras.layers.Input(shape=(75, 340), name="landmark_input")
 
     visual_model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(visual_input)
-    visual_model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 7, 7), strides=(1, 2, 2))(visual_model)
+    visual_model = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))(visual_model)
     visual_model = tf.keras.layers.BatchNormalization()(visual_model)
     visual_model = tf.keras.layers.Activation("relu")(visual_model)
     visual_model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(visual_model)
     visual_model = tf.keras.layers.SpatialDropout3D(0.5)(visual_model)
 
     visual_model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(visual_model)
-    visual_model = tf.keras.layers.Conv3D(filters=64, kernel_size=(3, 7, 7), strides=(1, 1, 1))(visual_model)
+    visual_model = tf.keras.layers.Conv3D(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1))(visual_model)
     visual_model = tf.keras.layers.BatchNormalization()(visual_model)
     visual_model = tf.keras.layers.Activation("relu")(visual_model)
     visual_model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(visual_model)
@@ -317,28 +317,23 @@ class LipReadingModel():
 
     visual_model = visual_model * K.expand_dims(ch_att_output)
 
-    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True))(visual_model)
-    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True))(visual_model)
+    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(visual_model)
+    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(visual_model)
 
-    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True))(landmark_input)
-    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True))(landmark_model)
-    
-    model = LipformerEncoder(128)(visual_model, landmark_model)
+    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(landmark_input)
+    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(landmark_model)
 
-    # model = LipformerCharacterDecoder(28)(model)
-    # model = tf.keras.layers.Activation("softmax")(model)
+    model = LipformerEncoder(1024, 512)(visual_model, landmark_model)
 
-    gru1 = tf.keras.layers.GRU(256, return_sequences=True)(model)
-    # gru2 = tf.keras.layers.GRU(256, return_sequences=True)(gru1)
-    # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
-    # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     # model = TransformerDecoder(256, 8)(model)
 
     model = tf.keras.layers.Dense(28, activation="softmax")(model)
 
     model = tf.keras.Model([visual_input, landmark_input], model)
     self.__compile_model(model, learning_rate=3e-4)
-    
+
     return model
 
   def __compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
