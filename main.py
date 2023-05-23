@@ -3,7 +3,7 @@ import os
 
 def main():
   ap = argparse.ArgumentParser(
-    prog="LCANet",
+    prog="LipReader",
     description="Rede Neural de leitura labial automática",
     add_help=True
   )
@@ -23,6 +23,7 @@ def main():
   train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER", "WER" e "BLEU"')
   train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
   train.add_argument("-a", "--architecture", required=False, default = "lcanet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet].")
+  train.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
 
   test = subparsers.add_parser("test")
 
@@ -34,6 +35,7 @@ def main():
   test.add_argument("-u", "--unseen_speakers", required=False, action="store_true", default=False, help='Opção para fazer testes com pessoas não vistas pelo treino')
   test.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
   test.add_argument("-s", "--save_results", required=False, action="store_true", default=False, help="Opção para salvar os resultados adquiridos na pasta do modelo.")
+  test.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
 
   preprocess = subparsers.add_parser("preprocess")
 
@@ -42,15 +44,13 @@ def main():
   preprocess.add_argument("width", help="Largura da extração. 160 para lipformer, 100 para as outras", type=int)
   preprocess.add_argument("height", help="Altura da extração. 80 para lipformer, 50 para as outras", type=int)
   preprocess.add_argument("-lf", "--landmark_features", required=False, action="store_true", help="Indica a extração das features de landmark")
-  # preprocess.add_argument("-ss", "--single_words", required=False, help="Path para a pasta de alignments. Habilita extração de palavras soltas.")
-  # preprocess.add_argument("-sm", "--skip_mouths", required=False, action="store_true", help="Opção para pular a extração de bocas.")
 
   args = vars(ap.parse_args())
 
   mode = args["mode"]
 
   if mode == "train" or mode == "test":
-    from model.architeture import LCANet
+    from model.architeture import LipReadingModel
 
     multi_gpu = False
     if args["choose_gpu"] is not None:
@@ -64,11 +64,11 @@ def main():
 
     if mode == "train":
       architecture = args["architecture"].lower()
-      assert architecture in ["lcanet", "lipnet", "blstm", "lipformer"], f"Arquitetura {architecture} não implementada"
+      assert architecture in LipReadingModel().architectures.keys(), f"Arquitetura {architecture} não implementada"
       
       checkpoint_path = args["save_model_path"] + "_best"
 
-    model = LCANet(args["trained_model_path"], architecture=architecture, multi_gpu = multi_gpu)
+    model = LipReadingModel(args["trained_model_path"], architecture=architecture, multi_gpu = multi_gpu)
 
     model.load_data(
       x_path = args["dataset_path"],
@@ -76,7 +76,7 @@ def main():
       batch_size = args["batch_size"],
       validation_only = False,
       unseen_speakers = args["unseen_speakers"],
-      landmark_features = args["architecture"] == "lipformer",
+      landmark_features = args["landmark_features"],
     )
 
     if mode == "train":

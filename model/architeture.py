@@ -21,8 +21,8 @@ from model.decoder import ctc_decode_multiprocess
 
 from keras_nlp.layers import TransformerEncoder
 
-class LCANet():
-  def __init__(self, model_path : str = None, architecture : str = "LCANet", multi_gpu = False):
+class LipReadingModel():
+  def __init__(self, model_path : str = None, architecture : str = None, multi_gpu = False):
     self.model = None
     self.data = None
 
@@ -31,21 +31,24 @@ class LCANet():
     for i in range(26):
       self.chars[i] = chr(i + 97)
 
-    architectures = {
+    self.architectures = {
       "lcanet": self.__get_model_lcanet,
       "lipnet": self.__get_model_lipnet,
       "blstm":  self.__get_model_3D_2D_BLSTM,
       "lipformer": self.__get_model_lipformer,
+      "cross_lipnet": self.__get_model_cross_lipnet,
     }
 
-    if model_path is None:
+    assert model_path is None or architecture is None
+
+    if architecture is not None:
       if multi_gpu:
         with tf.distribute.MirroredStrategy().scope():
-          self.model = architectures[architecture.lower()]()
+          self.model = self.architectures[architecture.lower()]()
       else:
-        self.model = architectures[architecture.lower()]()
+        self.model = self.architectures[architecture.lower()]()
 
-    else:
+    elif model_path is not None:
       if multi_gpu:
         with tf.distribute.MirroredStrategy().scope():
           self.load_model(model_path)
@@ -301,7 +304,7 @@ class LCANet():
     visual_model = tf.keras.layers.SpatialDropout3D(0.5)(visual_model)
 
     visual_model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(visual_model)
-    visual_model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 5, 5), strides=(1, 1, 1))(visual_model)
+    visual_model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1))(visual_model)
     visual_model = tf.keras.layers.BatchNormalization()(visual_model)
     visual_model = tf.keras.layers.Activation("relu")(visual_model)
     visual_model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(visual_model)
@@ -320,21 +323,21 @@ class LCANet():
     
     model = LipformerEncoder(128)(visual_model, landmark_model)
 
-    model = LipformerCharacterDecoder(28)(model)
-    model = tf.keras.layers.Activation("softmax")(model)
+    # model = LipformerCharacterDecoder(28)(model)
+    # model = tf.keras.layers.Activation("softmax")(model)
 
-    # gru1 = tf.keras.layers.GRU(256, return_sequences=True)(model)
+    gru1 = tf.keras.layers.GRU(256, return_sequences=True)(model)
     # gru2 = tf.keras.layers.GRU(256, return_sequences=True)(gru1)
     # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     # model = TransformerDecoder(256, 8)(model)
 
-    # model = tf.keras.layers.Dense(28, activation="softmax")(model)
+    model = tf.keras.layers.Dense(28, activation="softmax")(model)
 
     model = tf.keras.Model([visual_input, landmark_input], model)
     self.__compile_model(model, learning_rate=3e-4)
     
     return model
-  
+
   def __compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
     model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
