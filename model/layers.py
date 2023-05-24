@@ -47,26 +47,29 @@ class Highway(tf.keras.layers.Layer):
         config['transform_gate_bias'] = self.transform_gate_bias
         return config
 
-class CascadedAttention(tf.keras.layers.Layer):
-    def __init__(self, output_size : int, **kwargs):
-        super(CascadedAttention, self).__init__(**kwargs)
+class CascadedAttentionCell(tf.keras.layers.Layer):
+    def __init__(self, hidden_state_size : int, output_size : int, **kwargs):
+        super(CascadedAttentionCell, self).__init__(**kwargs)
         self.output_size = output_size # tamanho da output
+        self.hidden_state_size = hidden_state_size
+        self.state_size = (hidden_state_size, 1, 1)
+
+    def get_initial_state(self, inputs=None, batch_size=None, dtype=None):
+        return tf.zeros([batch_size, self.hidden_state_size], dtype=tf.float32), tf.zeros([batch_size, 1], dtype=tf.int64), tf.zeros([batch_size, 1], dtype=tf.int64)
  
     def build(self, input_shape): # [batch, timesteps, features]
         self.timesteps = input_shape[1]
         
-        # self.att = CascadedAttentionCell(self.output_size)
         self.att = tf.keras.layers.AdditiveAttention()
-        # self.att.build(input_shape)
 
-        self.gru = CascadedGruCell(self.output_size)
+        self.gru = CascadedGruCell(self.hidden_state_size, self.output_size)
         self.gru.build(input_shape)
 
         self.d = tf.keras.layers.Dense(28)
 
-        super(CascadedAttention, self).build(input_shape)
+        super(CascadedAttentionCell, self).build(input_shape)
  
-    def call(self, inputs):
+    def call(self, inputs_at_t, states_at_t, constants):
         """_summary_
 
         Args:
@@ -75,88 +78,33 @@ class CascadedAttention(tf.keras.layers.Layer):
         Returns:
             prediction: the softmaxed prediction for each timestep, of shape [batch, timestep, output_size]
         """
-        batch_size = tf.shape(inputs)[0]
-        prev_pred  = tf.zeros([batch_size, self.output_size])
-        prev_state = self.gru.get_initial_state(batch_size=batch_size, dtype="float32")
-        output = []
+        prev_state, prev_pred, t = states_at_t
+        constants = constants[0]
 
-        for t in range(self.timesteps):
-            context_vector = K.squeeze(self.att([K.expand_dims(prev_state, 1), inputs]), 1)
-            prev_state = self.gru(context_vector, prev_state, prev_pred, t)
-            prev_pred = self.d(prev_state)
-            output.append(prev_pred)
+        context_vector = K.squeeze(self.att([K.expand_dims(prev_state, 1), constants]), 1)
+        state = self.gru(context_vector, prev_state, prev_pred, t)
+        pred = self.d(prev_state)
 
-        output = tf.convert_to_tensor(output, dtype=tf.float32)
-        output = tf.transpose(output, [1, 0, 2])
-        return output
+        return pred, (state, K.expand_dims(K.argmax(pred), -1), t+1)
     
     def get_config(self):
         config = super().get_config()
         config['output_size'] = self.output_size
         config['timesteps'] = self.timesteps
+        config['hidden_state_size'] = self.hidden_state_size
+        config['state_size'] = self.state_size
         return config
     
-class CascadedAttentionCell(tf.keras.layers.Layer):
-    def __init__(self, output_size, **kwargs):
-        super(CascadedAttentionCell, self).__init__(**kwargs)
-        self.output_size = output_size
- 
-    def build(self, input_shape): # 75x1024
-        dim = input_shape[-1]
-        timesteps = input_shape[-2]
-        # print("input_shape", input_shape)
-        self.Wa  = self.add_weight(name='recurrent_attention_cell_weight',  shape=(self.output_size, self.output_size), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ua  = self.add_weight(name='attention_cell_weight',            shape=(dim, self.output_size),              initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Va  = self.add_weight(name='attention_cell_score_weight',      shape=(self.output_size, 1),                initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        self.Ba = self.add_weight(name='attention_cell_bias2',             shape=(1, self.output_size),                initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-
-        super(CascadedAttentionCell, self).build(input_shape)
-
-    def call(self, inputs, prev_state):
-        """_summary_
-
-        Args:
-            inputs: encoder outputs of shape [batch_size, timestep, dim]
-            prev_state: previous hidden state of the decoder GRUCell of shape [batch_size, output_size]
-
-        Returns:
-            context_vector: tensor of shape [batch_size, dim]
-        """
-        state_temp = K.expand_dims(prev_state, -2)
-        WaS = tf.matmul(state_temp, self.Wa)
-
-        UaH = tf.matmul(inputs, self.Ua)
-
-        # WaS shape:       [batch,        1, output_size]
-        # UaH shape:       [batch, timestep, output_size]
-        # UaH + WaS shape: [batch, timestep, output_size]
-
-        scores = K.tanh(UaH + WaS + self.Ba)
-        scores = K.relu(tf.matmul(scores, self.Va))
-
-        # scores shape: [batch, timestep, 1]
-
-        sm = K.softmax(scores, axis=1)                 
-        context_vector = K.sum(inputs * sm, axis=1)
-
-        return context_vector
-
 class CascadedGruCell(tf.keras.layers.Layer):
-    def __init__(self, output_size, **kwargs):
+    def __init__(self, hidden_size, output_size, **kwargs):
         super(CascadedGruCell, self).__init__(**kwargs)
         self.output_size = output_size
+        self.hidden_size = hidden_size
  
     def build(self, input_shape):
-        feature_count = input_shape[-1]
-        # self.Wo  = self.add_weight(name='recurrent_gru_cell_weight',  shape=(self.output_size, 1),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        # self.Uo  = self.add_weight(name='cascaded_gru_cell_weight',            shape=(feature_count, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-        # self.Co  = self.add_weight(name='context_cascaded_gru_cell_weight',            shape=(feature_count, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+        self.emb  = tf.keras.layers.Embedding(self.output_size + 1, self.hidden_size)
 
-        # self.Bo  = self.add_weight(name='cascaded_gru_cell_bias1',            shape=(1, self.output_size),   initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
-
-        self.emb  = tf.keras.layers.Embedding(29, 512)
-
-        self.gru = ContextGRU(self.output_size)
+        self.gru = ContextGRU(self.hidden_size)
         self.gru.build(input_shape)
         super(CascadedGruCell, self).build(input_shape)
 
@@ -171,33 +119,29 @@ class CascadedGruCell(tf.keras.layers.Layer):
         Returns:
             prediction: prediction of shape: [batch, output_size]
         """
-        if t == 0:
+        if t[0][0] == 0:
             batch_size = tf.shape(context_vector)[0]
-            a = tf.zeros([batch_size, 1])
-            emb_out = self.emb(a)
+            emb_in = tf.zeros([batch_size, 1], dtype=tf.int64)
         else:
-            prev_y = K.expand_dims(K.argmax(prev_pred), -1)
-            emb_out = self.emb(prev_y + 1)
+            emb_in = prev_pred + 1
 
-        emb_out = K.squeeze(emb_out, -2)
+        emb_out = K.squeeze(self.emb(emb_in), -2)
 
-        # prev_state = K.expand_dims(prev_state, 1)
-
-        # context_vector = K.expand_dims(context_vector, 1)
-
-        h = self.gru(emb_out, context_vector, prev_state)
-
-        # WoY, UoH, CoC shape: [batch, 28]
-
-        return h
+        return self.gru(emb_out, context_vector, prev_state)
     
     def get_initial_state(self, batch_size, dtype):
         return tf.zeros([batch_size, self.output_size], dtype=dtype)
     
+    def get_config(self):
+        config = super().get_config()
+        config['output_size'] = self.output_size
+        config['hidden_size'] = self.hidden_size
+        return config
+    
 class ContextGRU(tf.keras.layers.Layer):
     def __init__(self, output_size, **kwargs):
         super(ContextGRU, self).__init__(**kwargs)
-        self.output_size = 512
+        self.output_size = output_size
 
     def build(self, input_shape):
         self.feature_count = input_shape[-1]
@@ -225,6 +169,12 @@ class ContextGRU(tf.keras.layers.Layer):
         h = (1 - z) * hh + z * prev_state
 
         return h
+    
+    def get_config(self):
+        config = super().get_config()
+        config['output_size'] = self.output_size
+        config['feature_count'] = self.feature_count
+        return config
     
 class LipformerEncoder(tf.keras.layers.Layer):
     def __init__(self, hidden_output_size, output_size, **kwargs):

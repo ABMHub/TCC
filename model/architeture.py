@@ -14,7 +14,7 @@ from keras import backend as K
 
 from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping
-from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipformerCharacterDecoder
+from model.layers import Highway, CascadedAttentionCell, LipformerEncoder, ChannelAttention, LipformerCharacterDecoder
 from generator.data_loader import get_training_data
 from generator.batch_generator import BatchGenerator
 
@@ -80,7 +80,7 @@ class LipReadingModel():
     """
     self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers, landmark_features = landmark_features)
 
-  def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None) -> None:
+  def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None, patience = 0) -> None:
     """Realiza o treinamento do modelo.
 
     Args:
@@ -103,9 +103,9 @@ class LipReadingModel():
         save_best_only=True
       )
       callback_list.append(model_checkpoint_callback)
-      callback_list.append(MinEarlyStopping(monitor="val_loss", patience=25, min_epoch=0))
+      callback_list.append(MinEarlyStopping(monitor="val_loss", patience=patience, min_epoch=0))
 
-    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, use_multiprocessing=True, workers=8)#, verbose=1)
+    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, use_multiprocessing=True, workers=2)
 
   def predict(self) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
@@ -200,7 +200,7 @@ class LipReadingModel():
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
 
-    model = CascadedAttention(28)(model)
+    model = tf.keras.layers.RNN(CascadedAttentionCell(512, 28), return_sequences=True)(model, constants=model)
 
     # model = tf.keras.layers.Dense(28)(model)
     model = tf.keras.layers.Activation("softmax")(model)

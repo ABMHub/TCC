@@ -22,7 +22,8 @@ def main():
   train.add_argument("-u", "--unseen_speakers", required=False, action="store_true", default=False, help='Opção para fazer testes com pessoas não vistas pelo treino')
   train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER", "WER" e "BLEU"')
   train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
-  train.add_argument("-a", "--architecture", required=False, default = "lcanet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet].")
+  train.add_argument("-a", "--architecture", required=False, default = "lcanet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet, bilstm, lipformer].")
+  train.add_argument("-p", "--patience", required=False, default = 25, type=int, help="Paciencia para o early stopping.")
   train.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
 
   test = subparsers.add_parser("test")
@@ -43,7 +44,7 @@ def main():
   preprocess.add_argument("results_folder", help="Caminho para a pasta onde o dataset processado estará. Será criada a pasta npz_mouths e single_words")
   preprocess.add_argument("width", help="Largura da extração. 160 para lipformer, 100 para as outras", type=int)
   preprocess.add_argument("height", help="Altura da extração. 80 para lipformer, 50 para as outras", type=int)
-  preprocess.add_argument("-lf", "--landmark_features", required=False, action="store_true", help="Indica a extração das features de landmark")
+  preprocess.add_argument("-lm", "--landmark_features", required=False, action="store_true", help="Indica a extração das features de landmark")
 
   args = vars(ap.parse_args())
 
@@ -83,7 +84,8 @@ def main():
       model.fit(
         epochs = args["epochs"],
         tensorboard_logs = args["logs_folder"],
-        checkpoint_path = checkpoint_path
+        checkpoint_path = checkpoint_path,
+        patience=args["patience"]
       )
       model.save_model(args["save_model_path"])
 
