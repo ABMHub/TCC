@@ -1,6 +1,5 @@
 import datetime
 from jiwer import cer, wer
-from keras import backend as K
 from nltk.translate.bleu_score import sentence_bleu
 
 import numpy as np
@@ -39,21 +38,19 @@ class LipReadingModel():
       "lipformer": self.__get_model_lipformer,
     }
 
-    assert model_path is None or architecture is None
-
-    if architecture is not None:
-      if multi_gpu:
-        with tf.distribute.MirroredStrategy().scope():
-          self.model = self.architectures[architecture.lower()]()
-      else:
-        self.model = self.architectures[architecture.lower()]()
-
-    elif model_path is not None:
+    if model_path is not None:
       if multi_gpu:
         with tf.distribute.MirroredStrategy().scope():
           self.load_model(model_path)
       else:
         self.load_model(model_path)
+
+    elif architecture is not None:
+      if multi_gpu:
+        with tf.distribute.MirroredStrategy().scope():
+          self.model = self.architectures[architecture.lower()]()
+      else:
+        self.model = self.architectures[architecture.lower()]()
 
   def load_model(self, path : str, inplace = True):
     K.clear_session()
@@ -105,7 +102,7 @@ class LipReadingModel():
       callback_list.append(model_checkpoint_callback)
       callback_list.append(MinEarlyStopping(monitor="val_loss", patience=patience, min_epoch=0))
 
-    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, use_multiprocessing=True, workers=2)
+    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, use_multiprocessing=True, workers=2)
 
   def predict(self) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
