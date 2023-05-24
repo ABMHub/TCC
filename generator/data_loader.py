@@ -61,7 +61,7 @@ class DataConfig:
     json.dump(config_dict, f)
     f.close()
 
-def get_training_data(videos_path : str, align_path : str, batch_size = 1, validation_only = False, unseen_speakers = False, landmark_features : bool = False):
+def get_training_data(videos_path : str, align_path : str, batch_size = 1, validation_only = False, unseen_speakers = False, landmark_features : bool = False) -> dict[str, BatchGenerator]:
   config_file = os.path.join(videos_path, "config.json")
   config_exists = os.path.isfile(config_file)
 

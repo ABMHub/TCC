@@ -5,10 +5,10 @@ from nltk.translate.bleu_score import sentence_bleu
 
 import numpy as np
 
-import absl.logging
+# import absl.logging
 import os
-absl.logging.set_verbosity(absl.logging.ERROR)
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+# absl.logging.set_verbosity(absl.logging.ERROR)
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 from keras import backend as K
 
@@ -16,6 +16,7 @@ from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping
 from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipformerCharacterDecoder
 from generator.data_loader import get_training_data
+from generator.batch_generator import BatchGenerator
 
 from model.decoder import ctc_decode_multiprocess
 
@@ -23,8 +24,8 @@ from keras_nlp.layers import TransformerEncoder
 
 class LipReadingModel():
   def __init__(self, model_path : str = None, architecture : str = None, multi_gpu = False):
-    self.model = None
-    self.data = None
+    self.model : tf.keras.Model = None
+    self.data : dict[str, BatchGenerator] = None
 
     self.chars = dict()
     self.chars[26] = " "
@@ -36,7 +37,6 @@ class LipReadingModel():
       "lipnet": self.__get_model_lipnet,
       "blstm":  self.__get_model_3D_2D_BLSTM,
       "lipformer": self.__get_model_lipformer,
-      "cross_lipnet": self.__get_model_cross_lipnet,
     }
 
     assert model_path is None or architecture is None
@@ -105,7 +105,7 @@ class LipReadingModel():
       callback_list.append(model_checkpoint_callback)
       callback_list.append(MinEarlyStopping(monitor="val_loss", patience=25, min_epoch=0))
 
-    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, verbose=1)
+    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, use_multiprocessing=True, workers=8)#, verbose=1)
 
   def predict(self) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
@@ -327,7 +327,6 @@ class LipReadingModel():
 
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
-    # model = TransformerDecoder(256, 8)(model)
 
     model = tf.keras.layers.Dense(28, activation="softmax")(model)
 
