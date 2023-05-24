@@ -13,7 +13,7 @@ from keras import backend as K
 
 from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping
-from model.layers import Highway, CascadedAttentionCell, LipformerEncoder, ChannelAttention, LipformerCharacterDecoder
+from model.layers import Highway, CascadedAttentionCell, LipformerEncoder, ChannelAttention, TransformerCCT
 from generator.data_loader import get_training_data
 from generator.batch_generator import BatchGenerator
 
@@ -183,16 +183,19 @@ class LipReadingModel():
     model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
     model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
-    model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(model)
-    model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1))(model) # ? ta falando 1 2 2 no artigo, mas nao bate com o summar
-    model = tf.keras.layers.BatchNormalization()(model)
-    model = tf.keras.layers.Activation("relu")(model)
-    model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
-    model = tf.keras.layers.SpatialDropout3D(0.5)(model)
+    # model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(model)
+    # model = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1))(model) # ? ta falando 1 2 2 no artigo, mas nao bate com o summar
+    # model = tf.keras.layers.BatchNormalization()(model)
+    # model = tf.keras.layers.Activation("relu")(model)
+    # model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+    # model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
-    model = Highway()(model)
-    model = Highway()(model)
+    model = tf.keras.layers.TimeDistributed(tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten()))(model)
+
+    model = tf.keras.layers.TimeDistributed(TransformerCCT(hidden_size=256, n_transformer_encoder=6, attention_heads=4))(model)
+    print(model)
+    # model = Highway()(model)
+    # model = Highway()(model)
 
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)

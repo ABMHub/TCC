@@ -1,5 +1,6 @@
 from keras import backend as K
 import tensorflow as tf
+import keras_nlp
 
 class Highway(tf.keras.layers.Layer):
     """
@@ -302,4 +303,40 @@ class LipformerCharacterDecoder(tf.keras.layers.Layer):
         config = super().get_config()
         config['timesteps'] = self.timesteps
         config['output_size'] = self.output_size
+        return config
+
+class TransformerCCT(tf.keras.layers.Layer):
+    def __init__(self, n_transformer_encoder : int = 2, hidden_size = 128, attention_heads = 2, **kwargs):
+        super(TransformerCCT, self).__init__(**kwargs)
+        self.n_transformer_encoder = n_transformer_encoder
+        self.hidden_size = hidden_size
+        self.attention_heads = attention_heads
+ 
+    def build(self, input_shape): # [batch, timesteps, features]
+        self.encoders = [keras_nlp.layers.TransformerEncoder(self.hidden_size, self.attention_heads) for _ in range(self.n_transformer_encoder)]
+
+        self.l_norm = tf.keras.layers.LayerNormalization(epsilon=1e-5)
+        self.d_1 = tf.keras.layers.Dense(1)
+
+        super(TransformerCCT, self).build(input_shape)
+    
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[-1])
+ 
+    def call(self, inputs):
+        encoder_out = inputs
+        for encoder in self.encoders:
+            encoder_out = encoder(encoder_out)
+    
+        representation = self.l_norm(encoder_out)
+        attention_weights = K.softmax(self.d_1(representation), axis=1)
+        weighted_representation = tf.matmul(
+            attention_weights, representation, transpose_a=True
+        )
+        return tf.squeeze(weighted_representation, -2)
+
+    def get_config(self):
+        config = super().get_config()
+        config['output_size'] = self.output_size
+        config['n_transformer_encoder'] = self.n_transformer_encoder
         return config
