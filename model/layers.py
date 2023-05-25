@@ -337,6 +337,7 @@ class TransformerCCT(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config['output_size'] = self.output_size
         config['n_transformer_encoder'] = self.n_transformer_encoder
+        config['hidden_size'] = self.hidden_size
+        config['attention_heads'] = self.attention_heads
         return config
