@@ -13,7 +13,7 @@ from keras import backend as K
 
 from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping
-from model.layers import Highway, CascadedAttentionCell, LipformerEncoder, ChannelAttention, TransformerCCT
+from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, TransformerCCT
 from generator.data_loader import get_training_data
 from generator.batch_generator import BatchGenerator
 
@@ -54,7 +54,7 @@ class LipReadingModel():
 
   def load_model(self, path : str, inplace = True):
     K.clear_session()
-    model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss()})
+    model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss(), "CascadedAttention": CascadedAttention})
 
     if inplace:
       self.model = model
@@ -199,7 +199,7 @@ class LipReadingModel():
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
 
-    model = tf.keras.layers.RNN(CascadedAttentionCell(512, 28), return_sequences=True)(model, constants=model)
+    model = CascadedAttention(512, 28)(model)
 
     # model = tf.keras.layers.Dense(28)(model)
     model = tf.keras.layers.Activation("softmax")(model)
