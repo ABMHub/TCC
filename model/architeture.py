@@ -192,7 +192,7 @@ class LipReadingModel():
 
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
 
-    model = PositionalEmbedding(75)(model)
+    model = PositionalEmbedding()(model)
     model = TransformerEncoder(512, 4)(model)
 
     # model = tf.keras.layers.TimeDistributed(TransformerCCT(hidden_size=256, n_transformer_encoder=6, attention_heads=4))(model)

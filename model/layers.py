@@ -364,13 +364,12 @@ class TransformerCCT(tf.keras.layers.Layer):
         return config
     
 class PositionalEmbedding(tf.keras.layers.Layer):
-    def __init__(self, sequence_length, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.sequence_length = sequence_length
 
     def build(self, input_shape): # [batch, timesteps, features]
         self.position_embeddings = tf.keras.layers.Embedding(
-            input_dim=self.sequence_length, output_dim=input_shape[-1]
+            input_dim=input_shape[-2], output_dim=input_shape[-1]
         )
 
     def call(self, inputs):
@@ -386,7 +385,5 @@ class PositionalEmbedding(tf.keras.layers.Layer):
     
     def get_config(self):
         config = super().get_config()
-        config['sequence_length'] = self.sequence_length
-        config['output_dim'] = self.output_dim
         return config
     
