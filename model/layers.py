@@ -47,6 +47,27 @@ class Highway(tf.keras.layers.Layer):
         config['transform_gate_bias'] = self.transform_gate_bias
         return config
 
+# @tf.keras.saving.register_keras_serializable('cascaded_attention_layer')
+class CascadedAttention(tf.keras.layers.Layer):
+    def __init__(self, hidden_state_size : int, output_size : int, **kwargs):
+        super(CascadedAttention, self).__init__(**kwargs)
+        self.hidden_state_size = hidden_state_size
+        self.output_size = output_size
+
+    def build(self, input_shape): # [batch, timesteps, features]
+        cell = CascadedAttentionCell(self.hidden_state_size, self.output_size)
+        self.casc_att = tf.keras.layers.RNN(cell, return_sequences=True)
+        super(CascadedAttention, self).build(input_shape)
+
+    def call(self, inputs):
+        return self.casc_att(inputs, constants=inputs)
+    
+    def get_config(self):
+        config = super().get_config()
+        config['output_size'] = self.output_size
+        config['hidden_state_size'] = self.hidden_state_size
+        return config
+    
 class CascadedAttentionCell(tf.keras.layers.Layer):
     def __init__(self, hidden_state_size : int, output_size : int, **kwargs):
         super(CascadedAttentionCell, self).__init__(**kwargs)
