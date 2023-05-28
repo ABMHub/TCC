@@ -52,10 +52,10 @@ class Highway(tf.keras.layers.Layer):
 class CascadedAttention(tf.keras.layers.Layer):
     def __init__(self, hidden_state_size : int, output_size : int, **kwargs):
         super(CascadedAttention, self).__init__(**kwargs)
-        self.hidden_state_size = hidden_state_size
         self.output_size = output_size
 
     def build(self, input_shape): # [batch, timesteps, features]
+        self.hidden_state_size = input_shape[-1]
         cell = CascadedAttentionCell(self.hidden_state_size, self.output_size)
         self.casc_att = tf.keras.layers.RNN(cell, return_sequences=True)
         super(CascadedAttention, self).build(input_shape)
@@ -362,3 +362,31 @@ class TransformerCCT(tf.keras.layers.Layer):
         config['hidden_size'] = self.hidden_size
         config['attention_heads'] = self.attention_heads
         return config
+    
+class PositionalEmbedding(tf.keras.layers.Layer):
+    def __init__(self, sequence_length, **kwargs):
+        super().__init__(**kwargs)
+        self.sequence_length = sequence_length
+
+    def build(self, input_shape): # [batch, timesteps, features]
+        self.position_embeddings = tf.keras.layers.Embedding(
+            input_dim=self.sequence_length, output_dim=input_shape[-1]
+        )
+
+    def call(self, inputs):
+        # The inputs are of shape: `(batch_size, frames, num_features)`
+        length = tf.shape(inputs)[1]
+        positions = tf.range(start=0, limit=length, delta=1)
+        embedded_positions = self.position_embeddings(positions)
+        return inputs + embedded_positions
+
+    def compute_mask(self, inputs, mask=None):
+        mask = tf.reduce_any(tf.cast(inputs, "bool"), axis=-1)
+        return mask
+    
+    def get_config(self):
+        config = super().get_config()
+        config['sequence_length'] = self.sequence_length
+        config['output_dim'] = self.output_dim
+        return config
+    
