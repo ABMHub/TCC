@@ -29,7 +29,7 @@ class VideoData:
     video_loader = loaders[extension]
 
     y = None
-    mask = None
+    limits = None
     jitter = None
 
     video = video_loader(self.video_path)
@@ -55,10 +55,10 @@ class VideoData:
     if standardize:
       x = (x - self.mean)/self.std
 
-    assert mask is None or jitter is None, "Proibido jitter e subsentence ao mesmo tempo!"
+    assert limits is None or jitter is None, "Proibido jitter e subsentence ao mesmo tempo!"
 
     if limits is not None:
-      x = x[mask[0]:mask[1]+1]
+      x = x[limits[0]:limits[1]+1]
 
     if jitter is not None:
       x = x[jitter]

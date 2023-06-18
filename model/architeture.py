@@ -164,7 +164,7 @@ class LipReadingModel():
   def __bleu(self, references : list[str], predictions : list[str]) -> float:
     references_p = [[reference.split()] for reference in references]
     predictions_p = [prediction.split() for prediction in predictions]
-    return np.mean([sentence_bleu(ref, pred) for ref, pred in zip(references_p, predictions_p)])
+    return np.mean([sentence_bleu(ref, pred, [1, 0, 0, 0]) for ref, pred in zip(references_p, predictions_p)])
 
   def __get_model_lcanet(self):
     K.clear_session()
