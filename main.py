@@ -44,6 +44,7 @@ def main():
   preprocess.add_argument("results_folder", help="Caminho para a pasta onde o dataset processado estará. Será criada a pasta npz_mouths e single_words")
   preprocess.add_argument("width", help="Largura da extração. 160 para lipformer, 100 para as outras", type=int)
   preprocess.add_argument("height", help="Altura da extração. 80 para lipformer, 50 para as outras", type=int)
+  preprocess.add_argument("crop_mode", help="Modo de extração de boca. Tipo de recorte que será feito após a transformação afim. Opções: [resize, crop]")
   preprocess.add_argument("-lm", "--landmark_features", required=False, action="store_true", help="Indica a extração das features de landmark")
 
   args = vars(ap.parse_args())
@@ -117,7 +118,8 @@ def main():
       extension = ".mpg",
       dest_folder = mouths_path,
       landmark_features = args["landmark_features"],
-      shape = (args["width"], args["height"])
+      shape = (args["width"], args["height"]),
+      mode = args["crop_mode"]
     )
 
 if __name__ == '__main__':

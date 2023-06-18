@@ -28,6 +28,8 @@ class LipReadingModel():
 
     self.chars = dict()
     self.chars[26] = " "
+    self.chars[27] = "_"
+    self.chars[28] = ""
     for i in range(26):
       self.chars[i] = chr(i + 97)
 
@@ -104,7 +106,7 @@ class LipReadingModel():
 
     self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, use_multiprocessing=True, workers=2)
 
-  def predict(self) -> list[str]: # pd.dataframe?
+  def predict(self, greedy = False) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
     É necessário carregar os dados com a função `self.get_data` antes.
 
@@ -125,7 +127,7 @@ class LipReadingModel():
       sections.append(raw_pred[int(round(start, 0)):int(round(end, 0))])
 
     strings = self.data["train"].get_strings()
-    result = ctc_decode_multiprocess(sections, workers, strings)
+    result = ctc_decode_multiprocess(sections, workers, strings, greedy)
 
     decoded = []
     for vec in result:
@@ -134,7 +136,7 @@ class LipReadingModel():
     sentences = []
     for p in decoded:
       sentence = []
-      for chr in p[0][0][1:-1]:
+      for chr in p[0][0]:
         sentence.append(self.chars[int(chr)])
 
       sentences.append("".join(sentence))

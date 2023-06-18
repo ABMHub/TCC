@@ -17,6 +17,13 @@ class DataConfig:
       self.std = np.array(data_dict[mode]["std"])
 
     train_split, val_split = split[mode]["train"], split[mode]["test"]
+
+    train_split = list(set([elem.split(".")[0] for elem in os.listdir(videos_path)]).intersection(train_split))
+    val_split   = list(set([elem.split(".")[0] for elem in os.listdir(videos_path)]).intersection(val_split))
+
+    random.seed(42)
+    random.shuffle(train_split)
+    
     videos = [[os.path.join(videos_path, elem + ".npz") for elem in file_set] for file_set in [train_split, val_split]]
     aligns = [[os.path.join(align_path, elem + ".align") for elem in file_set] for file_set in [train_split, val_split]]
 

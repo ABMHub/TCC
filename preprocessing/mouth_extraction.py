@@ -15,31 +15,20 @@ lmd = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
 VIDEO_HEIGHT = 720
 VIDEO_WIDTH  = 576
 
-# def convert_all_videos(path, extension, dest_folder, numpy_file = True, verbose = 1):
-#   print("Localizando todos os vídeos...")
-#   orig_dest_videos = get_all_videos(path, extension, dest_folder)
-#   dest_extension = ".npz" if numpy_file else ".avi"
-
-#   for orig in tqdm.tqdm(orig_dest_videos, desc="Convertendo Video", disable=verbose<=0):
-#     if not os.path.isfile(orig_dest_videos[orig] + dest_extension):
-#       create_dir_recursively("/".join(orig_dest_videos[orig].split("/")[:-1]))
-#       try:
-#         FaceVideo(orig, verbose = 0 if verbose < 2 else 1).get_mouth_video(orig_dest_videos[orig])
-#       except (IndexError, TypeError, AssertionError) as err:
-#         print(f"Video {orig} com erro\n{err}")
-
 def __video_class_wrapper(args):
-  orig, verbose, path, landmark_features, shape = args
+  orig, verbose, path, landmark_features, shape, mode = args
   create_dir_recursively("/".join(path.split("/")[:-1]))
   try:
-    obj = FaceVideo(orig, shape, verbose = 0 if verbose < 2 else 1)
+    obj = FaceVideo(orig, shape, mode = mode, verbose = 0 if verbose < 2 else 1)
     obj.get_mouth_video(path)
     if landmark_features:
       obj.extract_landmark_features(path.replace("npz_mouths", "landmark_features"))
   except (IndexError, TypeError, AssertionError) as err:
     print(f"Video {orig} com erro\n{err}")
 
-def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[int] = (100, 50), verbose = 1, numpy_file = True, process_count = 12, landmark_features = False):
+def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[int] = (100, 50), verbose = 1, numpy_file = True, process_count = 12, landmark_features = False, mode = "resize"):
+  assert mode in ["crop", "resize"], f"Tipo de pré-processamento \"{mode}\" não reconhecido"
+
   print("Localizando todos os vídeos...")
   orig_dest_videos = get_all_videos(path, extension, dest_folder)
   dest_extension = ".npz" if numpy_file else ".avi"
@@ -50,18 +39,19 @@ def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[
   args = []
   for orig in orig_dest_videos:
     if not os.path.isfile(orig_dest_videos[orig] + dest_extension) or (landmark_features and not os.path.isfile(orig_dest_videos[orig].replace("npz_mouths", "landmark_features") + dest_extension)):
-      args.append((orig, verbose, orig_dest_videos[orig], landmark_features, shape))
+      args.append((orig, verbose, orig_dest_videos[orig], landmark_features, shape, mode))
 
   [None for _ in tqdm.tqdm(pool.imap_unordered(__video_class_wrapper, args), desc="Convertendo Video", disable=verbose<=0, total=len(orig_dest_videos), initial=len(orig_dest_videos) - len(args))]
 
 class FaceVideo:
-  def __init__(self, video_path : str, shape : tuple[int, int], numpy_file : bool = True, verbose = 1):
+  def __init__(self, video_path : str, shape : tuple[int, int], mode = "resize", numpy_file : bool = True, verbose = 1):
     self.video = cv2.VideoCapture(video_path)
     self.frame_count = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
     self.frames :list[FaceFrame] = []
     self.numpy_file = numpy_file
     self.verbose = verbose
     self.shape = shape
+    self.mode = mode
 
     pbar = tqdm.tqdm(desc='Carregando video', total=self.frame_count, disable=self.verbose==0)
     while self.video.isOpened():
@@ -77,7 +67,7 @@ class FaceVideo:
       frame_obj.transform() 
 
     resize = 70 if self.shape == (100, 50) else 80 # distance between mouth center and far left/right of the frame. 80 for lipformer, 70 for the other ones
-    self.mouth_imgs = np.array([cv2.resize(frame_obj.get_mouth_img(resize), self.shape) for frame_obj in tqdm.tqdm(self.frames, desc="Adquirindo recortes da boca", disable=self.verbose==0)])
+    self.mouth_imgs = np.array([cv2.resize(frame_obj.get_mouth_img(resize, self.mode), self.shape) for frame_obj in tqdm.tqdm(self.frames, desc="Adquirindo recortes da boca", disable=self.verbose==0)])
 
     assert self.mouth_imgs.shape == (75,) + tuple(reversed(self.shape)) + (3,), f"Shape criado inválido: {self.mouth_imgs.shape}"
 
@@ -107,13 +97,18 @@ class FaceFrame:
   def __init__(self, img : np.ndarray):
     self.img = img
 
-    faces = ffd(img, 0)
-    assert len(faces) == 1, "Mais ou menos de um rosto detectado"
-    self.face = faces[0]
-
-    lm = lmd(self.img, self.face)
-    self.lm = [(lm.part(i).x, lm.part(i).y) for i in range(68)]
+    self.face, self.lm = self.detect_landmarks()
     self.l_eye, self.r_eye, self.mouth = self.get_mouth_coords()
+
+  def detect_landmarks(self):
+    faces = ffd(self.img, 0)
+    assert len(faces) == 1, "Mais ou menos de um rosto detectado"
+    face = faces[0]
+
+    lm = lmd(self.img, face)
+    lm = [(lm.part(i).x, lm.part(i).y) for i in range(68)]
+
+    return face, lm
 
   def extract_landmark_features(self):
     face_countour = list(range(17))
@@ -185,6 +180,27 @@ class FaceFrame:
     self.img = cv2.warpAffine(self.img, matrix, tuple(reversed(self.img.shape[0:2])))
     self.l_eye, self.r_eye, self.mouth = dest
 
-  def get_mouth_img(self, resize : int):
-    m = [int(i) for i in self.mouth]
-    return self.img[m[1]-resize//2:m[1]+resize//2, m[0]-resize:m[0]+resize]
+  def get_mouth_corners(self):
+    tl_mouth = [1e9, 1e9]
+    br_mouth = [0, 0]
+
+    for i in range(48, 60):
+      x, y = self.lm[i]
+
+      tl_mouth = min(tl_mouth[0], x), min(tl_mouth[1], y)
+      br_mouth = max(br_mouth[0], x), max(br_mouth[1], y)
+
+    return tl_mouth, br_mouth
+
+  def get_mouth_img(self, resize : int, mode = "resize"):
+    if mode == "resize":
+      self.face, self.lm = self.detect_landmarks()
+      corners = self.get_mouth_corners()
+
+      return self.img[corners[0][1]:corners[1][1], corners[0][0]:corners[1][0]]
+    elif mode == "crop":
+      m = [int(i) for i in self.mouth]
+      return self.img[m[1]-resize//2:m[1]+resize//2, m[0]-resize:m[0]+resize]
+    
+    else:
+      raise ValueError("Mode deve ser \"resize\" ou \"crop\"")

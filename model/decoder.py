@@ -10,6 +10,12 @@ predictions = np.ndarray
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
+chars = dict()
+chars[26] = " "
+chars[27] = "_"
+for i in range(26):
+  chars[i] = chr(i + 97)
+
 class NgramLM(CTCDecoderLM):
   """Create a Python wrapper around `language_model` to feed to the decoder."""
   def __init__(self, language_model):
@@ -18,11 +24,8 @@ class NgramLM(CTCDecoderLM):
     self.sil = 28
     self.states = {}
 
-    self.chars = dict()
-    self.chars[26] = " "
+    self.chars = chars
     self.chars[28] = "<s>"
-    for i in range(26):
-      self.chars[i] = chr(i + 97)
         
   def start(self, start_with_nothing: bool = False):
     self.states = {}
@@ -69,7 +72,7 @@ class NgramDecoder: # salvar e carregar com pickle
   def __call__(self, preds : list[list[float]]):
     return self.decoder(torch.from_numpy(preds))
   
-def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings : list[str] = None) -> list[list[int]]:
+def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
   """_summary_
 
   Args:
@@ -80,6 +83,14 @@ def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings 
   Returns:
       list: list of dimensions [batch, prediction, letter_index]
   """
+  if greedy:
+    sentences = []
+    for b in batches:
+      for pred in b:
+        sentence = np.argmax(pred, -1)
+        sentences.append([[[sentence]]])
+    return sentences
+  
   pool = Pool(workers)
   return pool.map(_decode_wrapper, list(zip(batches, [strings]*len(batches)))) # talvez usar o chunksize ao inves de passar batches
 

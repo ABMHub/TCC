@@ -16,13 +16,15 @@ class VideoData:
     self.training = training
     self.mean, self.std = mean, std
     self.reversed = bool(random.getrandbits(1))
-    self.subsentences = False
-    self.jitter = True
+
+    randnum = random.random()
+    self.subsentences = randnum < 0.2
+    self.jitter = randnum >= 0.2
 
     self.landmark_path = landmark_path
     self.lm_mean, self.lm_std = landmark_mean, landmark_std
 
-  def load_video(self, epoch):
+  def load_video(self, epoch, standardize = True):
     extension = self.video_path.split(".")[-1]
     video_loader = loaders[extension]
 
@@ -33,7 +35,8 @@ class VideoData:
     video = video_loader(self.video_path)
     if self.training is True:
       if self.subsentences is True:
-        mask, y = self.generate_subsentence_mask(epoch)
+        begin, end, y = self.generate_subsentence_mask(epoch)
+        limits = (begin, end)
 
       elif self.jitter is True:
         jitter = self.generate_jitter()
@@ -48,21 +51,24 @@ class VideoData:
     else:
       y = self.align.number_string
 
-    x = (np.array(video) - self.mean)/self.std
+    x = np.array(video)
+    if standardize:
+      x = (x - self.mean)/self.std
 
     assert mask is None or jitter is None, "Proibido jitter e subsentence ao mesmo tempo!"
 
-    if mask is not None:
-      x = x * mask
+    if limits is not None:
+      x = x[mask[0]:mask[1]+1]
 
     if jitter is not None:
       x = x[jitter]
-      pad_size = 75 - x.shape[0]
-      x = np.pad(x, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+
+    pad_size = 75 - x.shape[0]
+    x = np.pad(x, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
 
     return x, y
 
-  def load_landmark(self):
+  def load_landmark(self): # as landmarks precisam sofrer augmentation tambem. provavelmente calcular angulos durante o treino
     assert self.landmark_path is not None and self.lm_mean is not None, "Landmark feature load error"
 
     extension = self.landmark_path.split(".")[-1]
@@ -71,19 +77,9 @@ class VideoData:
     return (loader(self.landmark_path) - self.lm_mean)/self.lm_std
 
   def generate_subsentence_mask(self, epoch):
-    # number_of_sentences = 6
-    # interval_size = 0.3
-
-    # mean = epoch * interval_size
-    # size = int(random.normalvariate(mean, 1))
-    # size = max(size, 1)
-    # subsentence_idx = random.randint(0, (number_of_sentences)-size) if size < 6 else 0
     subsentence_idx = random.randint(0, 5)
 
-    begin, end, y = self.align.get_sub_sentence(subsentence_idx, 1)
-
-    mask = np.array([0]*begin + [1]*((end-begin)+1) + [0]*(74-end)).reshape(75, 1, 1, 1)
-    return mask, y
+    return self.align.get_sub_sentence(subsentence_idx, 1)
 
   def generate_jitter(self, timesteps : int = 75) -> list[int]:
     frames = list(range(timesteps))
@@ -212,6 +208,9 @@ class BatchGenerator(tf.keras.utils.Sequence):
     return self.generator_steps
 
   def __getitem__(self, index : int):
+    return self.getitem(index)
+
+  def getitem(self, index : int, standardize = True):
     split = self.__get_split_tuple(index)
 
     batch_videos = self.data[split[0]:split[1]]
@@ -230,7 +229,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
       vid_obj = VideoData(vid[0], vid[1], self.training, self.mean, self.std_var, **lm_dict)
 
-      xp, yp = vid_obj.load_video(self.epoch)
+      xp, yp = vid_obj.load_video(self.epoch, standardize)
       x.append(xp)
       y.append(yp)
       if self.lm: lm.append(vid_obj.load_landmark())
