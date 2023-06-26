@@ -54,25 +54,28 @@ class NgramLM(CTCDecoderLM):
     return ret
   
 class NgramDecoder: # salvar e carregar com pickle
-  def __init__(self, train_sentences : list[str], n = 5):
-    sentences = [[*s] for s in train_sentences]
-    train, padded = nltk.lm.preprocessing.padded_everygram_pipeline(5, sentences)
-    m = nltk.lm.MLE(5)
-    m.fit(train, padded)
+  def __init__(self, train_sentences : list[str], n = 5, lm = True):
+    self.LM = None
+    if lm:
+      sentences = [[*s] for s in train_sentences]
+      train, padded = nltk.lm.preprocessing.padded_everygram_pipeline(5, sentences)
+      m = nltk.lm.MLE(5)
+      m.fit(train, padded)
 
-    self.LM = NgramLM(m)
+      self.LM = NgramLM(m)
+
     self.decoder = ctc_decoder(
       None,
       list("abcdefghijklmnopqrstuvwxyz -|"),
       beam_size = 200,
       lm=self.LM,
-      lm_weight=0.5
+      lm_weight=0.5 if self.LM is not None else 0
     )
 
   def __call__(self, preds : list[list[float]]):
     return self.decoder(torch.from_numpy(preds))
   
-def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
+def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings : list[str] = None, language_model = True, greedy = False) -> list[list[int]]:
   """_summary_
 
   Args:
@@ -92,7 +95,7 @@ def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings 
     return sentences
   
   pool = Pool(workers)
-  return pool.map(_decode_wrapper, list(zip(batches, [strings]*len(batches)))) # talvez usar o chunksize ao inves de passar batches
+  return pool.map(_decode_wrapper, list(zip(batches, [strings]*len(batches), [language_model]*len(batches)))) # talvez usar o chunksize ao inves de passar batches
 
 def _decode_wrapper(a):
-  return NgramDecoder(a[1], n=5)(a[0])
+  return NgramDecoder(a[1], n=5, lm = a[2])(a[0])

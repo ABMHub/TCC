@@ -127,33 +127,40 @@ class LipReadingModel():
       sections.append(raw_pred[int(round(start, 0)):int(round(end, 0))])
 
     strings = self.data["train"].get_strings()
-    result = ctc_decode_multiprocess(sections, workers, strings, greedy)
+    result = ctc_decode_multiprocess(sections, workers, strings, greedy=greedy, language_model=True)
+    result_nolm = ctc_decode_multiprocess(sections, workers, strings, greedy=greedy, language_model=False)
 
-    decoded = []
-    for vec in result:
-      decoded += list(vec)
+    ret = []
+    for res in [result, result_nolm]:
+      decoded = []
+      for vec in res:
+        decoded += list(vec)
 
-    sentences = []
-    for p in decoded:
-      sentence = []
-      for chr in p[0][0]:
-        sentence.append(self.chars[int(chr)])
+      sentences = []
+      for p in decoded:
+        sentence = []
+        for chr in p[0][0]:
+          sentence.append(self.chars[int(chr)])
 
-      sentences.append("".join(sentence))
+        sentences.append("".join(sentence))
 
-    return sentences
+      ret.append(sentences)
+
+    return ret
 
   def evaluate_model(self, predictions = None, save_metrics_file_path : str = None) -> tuple[float, float, float]:
     assert self.data is not None
     assert self.data["validation"] is not None
 
     if predictions is None:
-      predictions = self.predict()
+      predictions, predictions_nolm = self.predict()
 
     true = self.data["validation"].get_strings()
     cer_m, wer_m, bleu_m = cer(true, predictions), wer(true, predictions), self.__bleu(true, predictions)
+    cer_m_nolm, wer_m_nolm, bleu_m_nolm = cer(true, predictions_nolm), wer(true, predictions_nolm), self.__bleu(true, predictions_nolm)
 
-    result_string = f"\nCER: {cer_m}\nWER: {wer_m}\nBLEU: {bleu_m}\n"
+    result_string  = f"With Language Model\nCER: {cer_m}\nWER: {wer_m}\nBLEU: {bleu_m}\n\n"
+    result_string += f"Without Language Model\nCER: {cer_m_nolm}\nWER: {wer_m_nolm}\nBLEU: {bleu_m_nolm}\n"
     print(result_string)
     if save_metrics_file_path is not None:
       with open(os.path.join(save_metrics_file_path), "w") as f:
