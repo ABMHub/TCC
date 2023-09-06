@@ -1,0 +1,1 @@
+Esse diretório é um backup dos experimentos principais que foram usados na monografia do TCC. A pasta original de modelos treinados tinha 34GB.

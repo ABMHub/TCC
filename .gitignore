@@ -1,8 +1,5 @@
 # modelos salvos
-*.h5
-*.tf
 modelos/
-saliency/
 
-logs
 __pycache__
+.vscode
