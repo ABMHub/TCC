@@ -1,6 +1,43 @@
 from keras import backend as K
 import tensorflow as tf
 
+class LipNetEncoder(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super(LipNetEncoder, self).__init__(**kwargs)
+
+    def build(self, *args):
+        self.conv1 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))
+        self.conv2 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 1, 1))
+        self.conv3 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 3, 3), strides=(1, 1, 1))
+
+        self.batch_norm1 = tf.keras.layers.BatchNormalization()
+        self.batch_norm2 = tf.keras.layers.BatchNormalization()
+        self.batch_norm3 = tf.keras.layers.BatchNormalization()
+
+    def call(self, input):
+        model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(input)
+        model = self.conv1(model)
+        model = self.batch_norm1(model)
+        model = tf.keras.layers.Activation("relu")(model)
+        model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+        model = tf.keras.layers.SpatialDropout3D(0.5)(model)
+
+        model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
+        model = self.conv2(model)
+        model = self.batch_norm2(model)
+        model = tf.keras.layers.Activation("relu")(model)
+        model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+        model = tf.keras.layers.SpatialDropout3D(0.5)(model)
+
+        model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(model)
+        model = self.conv3(model)
+        model = self.batch_norm3(model)
+        model = tf.keras.layers.Activation("relu")(model)
+        model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
+        model = tf.keras.layers.SpatialDropout3D(0.5)(model)
+
+        return model
+
 class Highway(tf.keras.layers.Layer):
     """
         Highway layer made by https://github.com/ParikhKadam

@@ -52,7 +52,13 @@ def main():
   mode = args["mode"]
 
   if mode == "train" or mode == "test":
-    from model.architeture import LipReadingModel
+    from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer
+    architectures = {
+      "lipnet": LCANet,
+      "lcanet": LipNet,
+      "blstm":  m3D_2D_BLSTM,
+      "lipformer": LipFormer,
+    }
 
     multi_gpu = False
     if args["choose_gpu"] is not None:
@@ -66,7 +72,7 @@ def main():
 
     if mode == "train":
       architecture = args["architecture"].lower()
-      assert architecture in LipReadingModel().architectures.keys(), f"Arquitetura {architecture} não implementada"
+      assert architecture in architectures.keys(), f"Arquitetura {architecture} não implementada"
       
       checkpoint_path = args["save_model_path"] + "_best"
 
