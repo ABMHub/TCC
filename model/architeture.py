@@ -40,12 +40,12 @@ class LipReadingModel():
       else:
         self.load_model(model_path)
 
-    elif architecture is not None:
-      if multi_gpu:
-        with tf.distribute.MirroredStrategy().scope():
-          self.model = self.architectures[architecture.lower()]()
-      else:
-        self.model = self.architectures[architecture.lower()]()
+    # elif architecture is not None:
+    #   if multi_gpu:
+    #     with tf.distribute.MirroredStrategy().scope():
+    #       self.model = self.architectures[architecture.lower()]()
+    #   else:
+    #     self.model = self.architectures[architecture.lower()]()
 
   def load_model(self, path : str, inplace = True):
     K.clear_session()

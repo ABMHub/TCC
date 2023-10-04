@@ -66,7 +66,7 @@ class FaceVideo:
     for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0):
       frame_obj.transform() 
 
-    resize = 70 if self.shape == (100, 50) else 80 # distance between mouth center and far left/right of the frame. 80 for lipformer, 70 for the other ones
+    resize = 80
     self.mouth_imgs = np.array([cv2.resize(frame_obj.get_mouth_img(resize, self.mode), self.shape) for frame_obj in tqdm.tqdm(self.frames, desc="Adquirindo recortes da boca", disable=self.verbose==0)])
 
     assert self.mouth_imgs.shape == (75,) + tuple(reversed(self.shape)) + (3,), f"Shape criado inválido: {self.mouth_imgs.shape}"
