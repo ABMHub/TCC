@@ -53,9 +53,10 @@ def main():
 
   if mode == "train" or mode == "test":
     from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer
+    from model.model import LipReadingModel
     architectures = {
-      "lipnet": LCANet,
-      "lcanet": LipNet,
+      "lipnet": LipNet,
+      "lcanet": LCANet,
       "blstm":  m3D_2D_BLSTM,
       "lipformer": LipFormer,
     }
@@ -76,7 +77,14 @@ def main():
       
       checkpoint_path = args["save_model_path"] + "_best"
 
-    model = LipReadingModel(args["trained_model_path"], architecture=architecture, multi_gpu = multi_gpu)
+    arch_obj = architectures[architecture]()
+
+    model = LipReadingModel(
+      model_path = args["trained_model_path"],
+      architecture = arch_obj,
+      multi_gpu = multi_gpu
+
+    )
 
     model.load_data(
       x_path = args["dataset_path"],
@@ -101,16 +109,16 @@ def main():
       current_model_path = args["save_model_path"] if mode == "train" else args["trained_model_path"]
 
       if mode != "test" or args["save_results"] is True:
-        metrics_path = os.path.join(current_model_path, "result_metrics.txt")
+        metrics_path = current_model_path
 
-      model.evaluate_model(save_metrics_file_path = metrics_path)
+      model.evaluate_model(save_metrics_folder_path = metrics_path)
 
       if mode == "train":
         model.load_model(checkpoint_path)
 
         print("Best model:")
-        metrics_path = os.path.join(current_model_path + "_best", "result_metrics.txt")
-        model.evaluate_model(save_metrics_file_path = metrics_path)
+        metrics_path = current_model_path + "_best"
+        model.evaluate_model(save_metrics_folder_path = metrics_path)
 
   elif mode == "preprocess":
     from preprocessing.mouth_extraction import convert_all_videos_multiprocess

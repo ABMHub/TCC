@@ -75,27 +75,35 @@ class NgramDecoder: # salvar e carregar com pickle
   def __call__(self, preds : list[list[float]]):
     return self.decoder(torch.from_numpy(preds))
   
-def ctc_decode_multiprocess(batches : list[predictions], workers : int, strings : list[str] = None, language_model = True, greedy = False) -> list[list[int]]:
-  """_summary_
+class Decoder():
+  def __init__(self):
+    self.name = "Empty"
 
-  Args:
-      batches (list[predictions]): each element of the list will be processed in a different python process
-      workers (int): number of maximum simultaneous python processes
-      strings (list[str]): strings to train ngram model. If None, decoder will not use a language model
+class NgramCTCDecoder(Decoder):
+  def __init__(self):
+    self.name = 'ngram'
 
-  Returns:
-      list: list of dimensions [batch, prediction, letter_index]
-  """
-  if greedy:
-    sentences = []
-    for b in batches:
-      for pred in b:
-        sentence = np.argmax(pred, -1)
-        sentences.append([[[sentence]]])
-    return sentences
-  
-  pool = Pool(workers)
-  return pool.map(_decode_wrapper, list(zip(batches, [strings]*len(batches), [language_model]*len(batches)))) # talvez usar o chunksize ao inves de passar batches
+  def ctc_decode_multiprocess(self, batches : list[predictions], workers : int, strings : list[str] = None, language_model = True, greedy = False) -> list[list[int]]:
+    """_summary_
 
-def _decode_wrapper(a):
-  return NgramDecoder(a[1], n=5, lm = a[2])(a[0])
+    Args:
+        batches (list[predictions]): each element of the list will be processed in a different python process
+        workers (int): number of maximum simultaneous python processes
+        strings (list[str]): strings to train ngram model. If None, decoder will not use a language model
+
+    Returns:
+        list: list of dimensions [batch, prediction, letter_index]
+    """
+    if greedy:
+      sentences = []
+      for b in batches:
+        for pred in b:
+          sentence = np.argmax(pred, -1)
+          sentences.append([[[sentence]]])
+      return sentences
+    
+    pool = Pool(workers)
+    return pool.map(self._decode_wrapper, list(zip(batches, [strings]*len(batches), [language_model]*len(batches)))) # talvez usar o chunksize ao inves de passar batches
+
+  def _decode_wrapper(self, a):
+    return NgramDecoder(a[1], n=5, lm = a[2])(a[0])

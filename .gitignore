@@ -4,5 +4,9 @@
 modelos/
 saliency/
 
+*.ipynb
+
+launch.json
+
 logs
 __pycache__
