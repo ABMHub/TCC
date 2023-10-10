@@ -22,9 +22,13 @@ def main():
   train.add_argument("-u", "--unseen_speakers", required=False, action="store_true", default=False, help='Opção para fazer testes com pessoas não vistas pelo treino')
   train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER", "WER" e "BLEU"')
   train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
-  train.add_argument("-a", "--architecture", required=False, default = "lcanet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet, bilstm, lipformer].")
+  train.add_argument("-a", "--architecture", required=False, default = "lipnet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet, bilstm, lipformer].")
   train.add_argument("-p", "--patience", required=False, default = 25, type=int, help="Paciencia para o early stopping.")
   train.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
+
+  train.add_argument("-n", "--experiment_name", required=False, default = None, type=str, help="O nome do experimento, será inserido nos logs.")
+  train.add_argument("-d", "--description", required=False, default = None, type=str, help="A descrição do experimento, será inserida nos logs.")
+  train.add_argument("-pt", "--preprocessing_type", required=False, default = None, type=str, help="Uma curta descrição do pré-processamento utilizado, será inserido nos logs")
 
   test = subparsers.add_parser("test")
 
@@ -37,6 +41,9 @@ def main():
   test.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
   test.add_argument("-s", "--save_results", required=False, action="store_true", default=False, help="Opção para salvar os resultados adquiridos na pasta do modelo.")
   test.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
+
+  test.add_argument("-n", "--experiment_name", required=False, default = None, type=str, help="O nome do experimento, será inserido nos logs. Se vazio, será usado o que estiver nos logs.")
+  test.add_argument("-d", "--description", required=False, default = None, type=str, help="A descrição do experimento, será inserida nos logs. Se vazio, será usado o que estiver nos logs.")
 
   preprocess = subparsers.add_parser("preprocess")
 
@@ -70,6 +77,7 @@ def main():
 
     checkpoint_path = None
     architecture = "lcanet"
+    arch_obj = None
 
     if mode == "train":
       architecture = args["architecture"].lower()
@@ -77,13 +85,15 @@ def main():
       
       checkpoint_path = args["save_model_path"] + "_best"
 
-    arch_obj = architectures[architecture]()
+      arch_obj = architectures[architecture]()
 
     model = LipReadingModel(
       model_path = args["trained_model_path"],
       architecture = arch_obj,
-      multi_gpu = multi_gpu
-
+      multi_gpu = multi_gpu,
+      experiment_name = args["experiment_name"],
+      description = args["description"],
+      pre_processing = args["preprocessing_type"],
     )
 
     model.load_data(
@@ -105,11 +115,11 @@ def main():
       model.save_model(args["save_model_path"])
 
     if mode == "test" or not args["skip_evaluation"]:
-      metrics_path = None
-      current_model_path = args["save_model_path"] if mode == "train" else args["trained_model_path"]
+      metrics_path = "./"
+      # current_model_path = args["save_model_path"] if mode == "train" else args["trained_model_path"]
 
-      if mode != "test" or args["save_results"] is True:
-        metrics_path = current_model_path
+      # if mode != "test" or args["save_results"] is True:
+        # metrics_path = current_model_path
 
       model.evaluate_model(save_metrics_folder_path = metrics_path)
 
@@ -117,7 +127,7 @@ def main():
         model.load_model(checkpoint_path)
 
         print("Best model:")
-        metrics_path = current_model_path + "_best"
+        # metrics_path = current_model_path + "_best"
         model.evaluate_model(save_metrics_folder_path = metrics_path)
 
   elif mode == "preprocess":
