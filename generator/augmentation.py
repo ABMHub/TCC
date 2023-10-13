@@ -114,8 +114,6 @@ class VideoGenerator:
     pad_size = 75 - x.shape[0]
     x = np.pad(x, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
 
-    print(y)
-
     return x, y
 
   def load_landmark(self, landmark_path = None,): # as landmarks precisam sofrer augmentation tambem. provavelmente calcular angulos durante o treino

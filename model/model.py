@@ -200,7 +200,6 @@ class LipReadingModel():
 
     self.evaluation.data["datetime"] = str(datetime.datetime.now())
     self.evaluation.data["best_last"] = "best" if self.model_path.endswith("best") else "last"
-    print(f"\n\n{self.model_path}\n\n")
 
     self.evaluation.to_csv(save_metrics_folder_path)
     self.evaluation.to_csv(self.model_path)

@@ -50,4 +50,4 @@ class Evaluation:
   def from_csv(self, folder_path : str):
     df = pd.read_csv(join(folder_path, "info.csv"))
     self.data = df.replace(pd.NA, None).iloc[-1].to_dict()
-    print(self.data)
+    # print(self.data)
