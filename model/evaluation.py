@@ -19,6 +19,7 @@ class Evaluation:
       "architecture_name": None,
       "preprocessing_type": None,
       "postprocessing_type": None,
+      "augmentation": None,
 
       "description": None,
       "datetime": None,
@@ -38,6 +39,8 @@ class Evaluation:
       # "batches_per_epoch": None,
       # "epochs_trained": None,
       "prediction_time": None,
+
+      "best_last": None,
     }
 
   def to_csv(self, folder_path : str):

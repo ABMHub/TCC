@@ -1,7 +1,7 @@
 import argparse
 import os
 
-def main():
+def main(args = None):
   ap = argparse.ArgumentParser(
     prog="LipReader",
     description="Rede Neural de leitura labial automática",
@@ -54,7 +54,7 @@ def main():
   preprocess.add_argument("crop_mode", help="Modo de extração de boca. Tipo de recorte que será feito após a transformação afim. Opções: [resize, crop]")
   preprocess.add_argument("-lm", "--landmark_features", required=False, action="store_true", help="Indica a extração das features de landmark")
 
-  args = vars(ap.parse_args())
+  args = args or vars(ap.parse_args())
 
   mode = args["mode"]
 
@@ -76,7 +76,6 @@ def main():
         os.environ["CUDA_VISIBLE_DEVICES"]=f"{args['choose_gpu']}"
 
     checkpoint_path = None
-    architecture = "lcanet"
     arch_obj = None
 
     if mode == "train":

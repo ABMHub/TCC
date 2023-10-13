@@ -4,16 +4,17 @@ import math
 SILENCE = ["sil", "sp"]
 
 class Align:
-  def __init__(self, align_path : str):
-    ret = self.read_file(align_path)
+  def __init__(self, align_path : str = None):
+    if align_path is not None:
+      ret = self.read_file(align_path)
 
-    self.start    : list[int] = [math.floor(elem/1000) for elem in ret[0]]
-    self.stop     : list[int] = [math.ceil(elem/1000) for elem in ret[1]]
-    self.sentence : list[str] = ret[2]
+      self.start    : list[int] = [math.floor(elem/1000) for elem in ret[0]]
+      self.stop     : list[int] = [math.ceil(elem/1000) for elem in ret[1]]
+      self.sentence : list[str] = ret[2]
 
-    self.length = len(self.start)
+      self.length = len(self.start)
 
-    self.number_string : list[int] = self.sentence2number(self.sentence)
+      self.number_string : list[int] = self.sentence2number(self.sentence)
 
   def __len__(self):
     return self.length
@@ -30,7 +31,16 @@ class Align:
     end = self.stop[index+(size-1)] if index+size < 6 else 74
     
     y = self.sentence[index:index+size]
-    return beg, end, Align.sentence2number(y)
+
+    cp = Align()
+
+    cp.start = self.start
+    cp.stop = self.stop
+    cp.sentence = y
+    cp.length = size
+    cp.number_string = self.sentence2number(cp.sentence)
+
+    return beg, end, cp
 
   @staticmethod
   def sentence2number(sentence : list[str]) -> list[int]:

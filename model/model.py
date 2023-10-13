@@ -69,7 +69,6 @@ class LipReadingModel():
     #     self.model = self.architectures[architecture.lower()]()
 
   def load_model(self, path : str, inplace = True):
-    # todo carregar evaluation
     K.clear_session()
     self.model_path = path
     model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss(), "CascadedAttention": CascadedAttention})
@@ -97,6 +96,7 @@ class LipReadingModel():
         validation_only (bool, optional): _description_. Defaults to False.
     """
     self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers, landmark_features = landmark_features)
+    self.evaluation.data["augmentation"] = self.evaluation.data["augmentation"] or self.data["train"].video_gen.aug_name
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None, patience = 0) -> None:
     """Realiza o treinamento do modelo.
@@ -199,6 +199,8 @@ class LipReadingModel():
     self.evaluation.data["prediction_time"] = pred_time
 
     self.evaluation.data["datetime"] = str(datetime.datetime.now())
+    self.evaluation.data["best_last"] = "best" if self.model_path.endswith("best") else "last"
+    print(f"\n\n{self.model_path}\n\n")
 
     self.evaluation.to_csv(save_metrics_folder_path)
     self.evaluation.to_csv(self.model_path)
