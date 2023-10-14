@@ -60,7 +60,9 @@ def main(args = None):
 
   if mode == "train" or mode == "test":
     from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer
+    from model.decoder import RawCTCDecoder, NgramCTCDecoder, SpellCTCDecoder
     from model.model import LipReadingModel
+    
     architectures = {
       "lipnet": LipNet,
       "lcanet": LCANet,
@@ -120,14 +122,20 @@ def main(args = None):
       # if mode != "test" or args["save_results"] is True:
         # metrics_path = current_model_path
 
-      model.evaluate_model(save_metrics_folder_path = metrics_path)
+      decoders = [RawCTCDecoder(), NgramCTCDecoder(), SpellCTCDecoder()]
+      # decoders = [SpellCTCDecoder()]
+      for decoder in decoders:
+        model.post_processing = decoder 
+        model.evaluate_model(save_metrics_folder_path = metrics_path)
 
       if mode == "train":
         model.load_model(checkpoint_path)
 
         print("Best model:")
         # metrics_path = current_model_path + "_best"
-        model.evaluate_model(save_metrics_folder_path = metrics_path)
+        for decoder in decoders:
+          model.post_processing = decoder 
+          model.evaluate_model(save_metrics_folder_path = metrics_path)
 
   elif mode == "preprocess":
     from preprocessing.mouth_extraction import convert_all_videos_multiprocess

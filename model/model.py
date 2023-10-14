@@ -27,7 +27,7 @@ class LipReadingModel():
       multi_gpu = False,
       pre_processing : str = None,
       architecture : Architecture = LipNet(),
-      post_processing : NgramCTCDecoder = NgramCTCDecoder(),
+      post_processing : Decoder = NgramCTCDecoder(),
       experiment_name : str = None,
       description : str = None
     ):
@@ -46,11 +46,7 @@ class LipReadingModel():
       self.chars[i] = chr(i + 97)
 
     if model_path is not None:
-      if multi_gpu:
-        with tf.distribute.MirroredStrategy().scope():
-          self.load_model(model_path)
-      else:
-        self.load_model(model_path)
+      self.load_model(model_path)
     else:
       self.model = architecture.get_model()
 
@@ -60,13 +56,6 @@ class LipReadingModel():
     self.evaluation.data["experiment_name"] = self.experiment_name or self.evaluation.data["experiment_name"]
     self.evaluation.data["description"] = description or self.evaluation.data["description"]
     self.evaluation.data["params"] = self.model.count_params() or self.evaluation.data["params"]
-
-    # elif architecture is not None:
-    #   if multi_gpu:
-    #     with tf.distribute.MirroredStrategy().scope():
-    #       self.model = self.architectures[architecture.lower()]()
-    #   else:
-    #     self.model = self.architectures[architecture.lower()]()
 
   def load_model(self, path : str, inplace = True):
     K.clear_session()
@@ -153,50 +142,30 @@ class LipReadingModel():
       sections.append(raw_pred[int(round(start, 0)):int(round(end, 0))])
 
     strings = self.data["train"].get_strings()
-    result = self.post_processing.ctc_decode_multiprocess(sections, workers, strings, greedy=greedy, language_model=True)
-    result_nolm = self.post_processing.ctc_decode_multiprocess(sections, workers, strings, greedy=greedy, language_model=False)
+    result = self.post_processing(sections, workers, strings, greedy=greedy)
+    # result_nolm = self.post_processing(sections, workers, strings, greedy=greedy, language_model=False)
 
-    ret = []
-    for res in [result, result_nolm]:
-      decoded = []
-      for vec in res:
-        decoded += list(vec)
+    return result
 
-      sentences = []
-      for p in decoded:
-        sentence = []
-        for chr in p[0][0]:
-          sentence.append(self.chars[int(chr)])
-
-        sentences.append("".join(sentence))
-
-      ret.append(sentences)
-
-    return ret
-
-  def evaluate_model(self, predictions = None, save_metrics_folder_path : str = None) -> tuple[float, float, float]:
+  def evaluate_model(self, save_metrics_folder_path : str = None) -> tuple[float, float, float]:
     assert self.data is not None
     assert self.data["validation"] is not None
 
-    if predictions is None:
-      pred_time = time.time()
-      predictions, predictions_nolm = self.predict()
-      pred_time = int(time.time() - pred_time)
+    pred_time = time.time()
+    predictions = self.predict()
+    pred_time = int(time.time() - pred_time)
 
     true = self.data["validation"].get_strings()
-
+    
+    self.evaluation.data["postprocessing_type"] = self.post_processing.name
+    
     self.evaluation.data["cer"] = cer(true, predictions)
     self.evaluation.data["wer"] = wer(true, predictions)
     self.evaluation.data["bleu"] = bleu(true, predictions, False)
     self.evaluation.data["bleu_multigram"] = bleu(true, predictions, True)
 
-    self.evaluation.data["cer_nolm"] = cer(true, predictions_nolm)
-    self.evaluation.data["wer_nolm"] = wer(true, predictions_nolm)
-    self.evaluation.data["bleu_nolm"] = bleu(true, predictions_nolm, False)
-    self.evaluation.data["bleu_multigram_nolm"] = bleu(true, predictions_nolm, True)
-
     self.evaluation.data["params"] = self.model.count_params()
-    self.evaluation.data["prediction_time"] = pred_time
+    self.evaluation.data["prediction_time"] = pred_time/len(predictions)
 
     self.evaluation.data["datetime"] = str(datetime.datetime.now())
     self.evaluation.data["best_last"] = "best" if self.model_path.endswith("best") else "last"

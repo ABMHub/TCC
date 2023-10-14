@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from nltk.translate.bleu_score import sentence_bleu
-from os.path import join
+from os.path import join, exists
 
 def bleu(references : list[str], predictions : list[str], multigram : bool = False) -> float:
   references_p = [[reference.split()] for reference in references]
@@ -29,10 +29,10 @@ class Evaluation:
       "bleu": None,
       "bleu_multigram": None,
 
-      "cer_nolm": None,
-      "wer_nolm": None,
-      "bleu_nolm": None,
-      "bleu_multigram_nolm": None,
+      # "cer_nolm": None,
+      # "wer_nolm": None,
+      # "bleu_nolm": None,
+      # "bleu_multigram_nolm": None,
 
       "params": None,
       # "seconds_per_batch": None,
@@ -44,8 +44,16 @@ class Evaluation:
     }
 
   def to_csv(self, folder_path : str):
-    # todo salvar no modelo e um geral
-    pd.DataFrame(data=[self.data], index=[0]).to_csv(join(folder_path, "info.csv"), mode="a", index=False)
+    path = join(folder_path, "info.csv")
+    current = pd.DataFrame(data=[self.data], index=[0])#.to_csv(join(folder_path, "info.csv"), mode="a", index=False)
+    if exists(path):
+      stored = pd.read_csv(path)
+      for column in set(current.columns) - set(stored.columns):
+        stored[column] = pd.NA
+
+      current = pd.concat([stored, current])
+
+    current.to_csv(path, index=False)      
 
   def from_csv(self, folder_path : str):
     df = pd.read_csv(join(folder_path, "info.csv"))
