@@ -4,11 +4,12 @@ import tensorflow as tf
 class LipNetEncoder(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         super(LipNetEncoder, self).__init__(**kwargs)
+        self.w_init = "he_normal"
 
     def build(self, *args):
-        self.conv1 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2))
-        self.conv2 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 1, 1))
-        self.conv3 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 3, 3), strides=(1, 1, 1))
+        self.conv1 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2), kernel_initializer=self.w_init)
+        self.conv2 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 1, 1), kernel_initializer=self.w_init)
+        self.conv3 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 3, 3), strides=(1, 1, 1), kernel_initializer=self.w_init)
 
         self.batch_norm1 = tf.keras.layers.BatchNormalization()
         self.batch_norm2 = tf.keras.layers.BatchNormalization()

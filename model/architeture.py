@@ -27,10 +27,10 @@ class LipNet(Architecture):
 
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
 
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
 
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28))(model)
+    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28, kernel_initializer="he_normal"))(model)
     model = tf.keras.layers.Activation("softmax")(model)
 
     model = tf.keras.Model(input, model)
@@ -56,8 +56,8 @@ class LCANet(Architecture):
     model = Highway()(model)
     model = Highway()(model)
 
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
 
     model = CascadedAttention(512, 28)(model)
 
