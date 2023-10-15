@@ -1,6 +1,7 @@
 from torchaudio.models.decoder import CTCDecoderLM, CTCDecoderLMState, ctc_decoder
 import torch
 import nltk
+import os
 
 from multiprocessing import Pool
 
@@ -241,8 +242,9 @@ class Spell(object):
     
 class SpellCTCDecoder(Decoder):
   def __init__(self):
+    print(os.getcwd())
     self.name = 'spell ctc decoder'
-    self.path = "./util/grid.txt"
+    self.path = os.path.join(os.path.dirname(__file__), "..", "util/grid.txt")
     self.obj = Spell(self.path)
 
   def __call__(self, batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:

@@ -73,7 +73,7 @@ def get_training_data(videos_path : str, align_path : str, batch_size = 1, valid
   config_file = os.path.join(videos_path, "config.json")
   config_exists = os.path.isfile(config_file)
 
-  split_file = "./splits.json"
+  split_file = os.path.join(os.path.dirname(__file__), "..", "splits.json")
   split_exists = os.path.isfile(split_file)
   config = None
 

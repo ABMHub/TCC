@@ -51,8 +51,11 @@ class LipReadingModel():
       self.model = architecture.get_model()
 
     self.evaluation.data["preprocessing_type"] = pre_processing or self.evaluation.data["preprocessing_type"]
-    self.evaluation.data["architecture_name"] = architecture.name or self.evaluation.data["architecture_name"]
-    self.evaluation.data["postprocessing_type"] = self.post_processing.name or self.evaluation.data["postprocessing_type"]
+    if architecture is not None:
+      self.evaluation.data["architecture_name"] = architecture.name
+    if self.post_processing is not None:
+      self.evaluation.data["postprocessing_type"] = self.post_processing.name
+
     self.evaluation.data["experiment_name"] = self.experiment_name or self.evaluation.data["experiment_name"]
     self.evaluation.data["description"] = description or self.evaluation.data["description"]
     self.evaluation.data["params"] = self.model.count_params() or self.evaluation.data["params"]

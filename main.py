@@ -94,7 +94,7 @@ def main(args = None):
       multi_gpu = multi_gpu,
       experiment_name = args["experiment_name"],
       description = args["description"],
-      pre_processing = args["preprocessing_type"],
+      pre_processing = args.get("preprocessing_type"),
     )
 
     model.load_data(
