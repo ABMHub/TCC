@@ -117,6 +117,7 @@ class LipReadingModel():
     # self.evaluation.data["batches_per_epoch"] = self.data[1].generator_steps
 
     self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, use_multiprocessing=True, workers=2)
+    self.evaluation.data["epochs_trained"] = self.data["train"].epoch
 
     if checkpoint_path is not None:
       self.evaluation.to_csv(checkpoint_path)

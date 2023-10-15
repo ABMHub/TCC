@@ -37,7 +37,7 @@ class Evaluation:
       "params": None,
       # "seconds_per_batch": None,
       # "batches_per_epoch": None,
-      # "epochs_trained": None,
+      "epochs_trained": None,
       "prediction_time": None,
 
       "best_last": None,
