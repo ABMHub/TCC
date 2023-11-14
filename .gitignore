@@ -1,3 +1,8 @@
+*.csv
+*.avi
+*.npz
+*.npy
+
 # modelos salvos
 *.h5
 *.tf

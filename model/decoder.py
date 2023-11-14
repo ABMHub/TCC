@@ -242,7 +242,6 @@ class Spell(object):
     
 class SpellCTCDecoder(Decoder):
   def __init__(self):
-    print(os.getcwd())
     self.name = 'spell ctc decoder'
     self.path = os.path.join(os.path.dirname(__file__), "..", "util/grid.txt")
     self.obj = Spell(self.path)

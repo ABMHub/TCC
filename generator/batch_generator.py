@@ -47,7 +47,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
         self.lm_mean, self.lm_std_var = 0, 1
         self.lm_mean, self.lm_std_var = self.__get_std_params_landmarks()
 
-    self.video_gen = VideoGenerator([MirrorAug(), SingleWords(), JitterAug()], self.training, self.mean, self.std_var, self.lm_mean, self.lm_std_var)
+    self.video_gen = VideoGenerator([MirrorAug(), JitterAug()], self.training, self.mean, self.std_var, self.lm_mean, self.lm_std_var)
 
   def get_strings(self):
     return [" ".join(elem.sentence) for elem in self.aligns]
