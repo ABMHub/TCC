@@ -25,6 +25,7 @@ def main(args = None):
   train.add_argument("-a", "--architecture", required=False, default = "lipnet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet, bilstm, lipformer].")
   train.add_argument("-p", "--patience", required=False, default = 25, type=int, help="Paciencia para o early stopping.")
   train.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
+  train.add_argument("-r", "--reflections", required=False, default = 0, type=int, help="Número de convoluções refletidas")
 
   train.add_argument("-n", "--experiment_name", required=False, default = None, type=str, help="O nome do experimento, será inserido nos logs.")
   train.add_argument("-d", "--description", required=False, default = None, type=str, help="A descrição do experimento, será inserida nos logs.")
@@ -59,13 +60,15 @@ def main(args = None):
   mode = args["mode"]
 
   if mode == "train" or mode == "test":
-    from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer
+    from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer, RLipNet, RLCANet
     from model.decoder import RawCTCDecoder, NgramCTCDecoder, SpellCTCDecoder
     from model.model import LipReadingModel
     
     architectures = {
       "lipnet": LipNet,
+      "rlipnet": RLipNet,
       "lcanet": LCANet,
+      "rlcanet": RLCANet,
       "blstm":  m3D_2D_BLSTM,
       "lipformer": LipFormer,
     }
@@ -86,7 +89,7 @@ def main(args = None):
       
       checkpoint_path = args["save_model_path"] + "_best"
 
-      arch_obj = architectures[architecture]()
+      arch_obj = architectures[architecture](reflections = args["reflections"])
 
     model = LipReadingModel(
       model_path = args["trained_model_path"],

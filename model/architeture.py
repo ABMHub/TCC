@@ -2,7 +2,7 @@ import tensorflow as tf
 from keras import backend as K
 
 from model.loss import CTCLoss
-from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
+from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder, LipNetREncoder
 
 class Architecture():
   def __init__(self):
@@ -16,7 +16,7 @@ class Architecture():
     
 
 class LipNet(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = 'LipNet'
 
   def get_model(self):
@@ -41,8 +41,35 @@ class LipNet(Architecture):
   def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
     model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
 
+class RLipNet(Architecture):
+  def __init__(self, reflections = 3, **kwargs):
+    self.name = 'Relfexive LipNet'
+    self.reflections = reflections
+
+  def get_model(self):
+    K.clear_session()
+    input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
+
+    model = LipNetREncoder(self.reflections)(input)
+
+    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
+
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
+
+    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28, kernel_initializer="he_normal"))(model)
+    model = tf.keras.layers.Activation("softmax")(model)
+
+    model = tf.keras.Model(input, model)
+    self.compile_model(model)
+
+    return model
+
+  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
+
 class LCANet(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = 'LCANet'
 
   def get_model(self):
@@ -71,9 +98,41 @@ class LCANet(Architecture):
 
   def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
     model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
+
+class RLCANet(Architecture):
+  def __init__(self, reflections = 3, **kwargs):
+    self.name = 'Reflexive LCANet'
+    self.reflections = reflections
+
+  def get_model(self):
+    K.clear_session()
+    # LCANet
+    input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
+    
+    model = LipNetREncoder(self.reflections)(input)
+
+    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
+    model = Highway()(model)
+    model = Highway()(model)
+
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
+
+    model = CascadedAttention(512, 28)(model)
+
+    # model = tf.keras.layers.Dense(28)(model)
+    model = tf.keras.layers.Activation("softmax")(model)
+
+    model = tf.keras.Model(input, model)
+    self.compile_model(model)
+
+    return model
+
+  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
   
 class LipFormer(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = 'LipFormer'  
 
   def get_model(self):
@@ -109,7 +168,7 @@ class LipFormer(Architecture):
     model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
 
 class m3D_2D_BLSTM(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = '3D 2D BLSTM'
     
   def get_model(self):
