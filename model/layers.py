@@ -19,7 +19,7 @@ class RConv3D(tf.keras.layers.Layer):
         n = self.conv(input)
         r = tf.reverse(input, axis=[3])
         n2 = self.conv(r)
-        tf.print(r)
+
         return tf.concat([n, n2], axis=-1)
 
 class LipNetEncoder(tf.keras.layers.Layer):
