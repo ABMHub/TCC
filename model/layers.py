@@ -102,6 +102,11 @@ class LipNetREncoder(tf.keras.layers.Layer):
         model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
         return model
+    
+    def get_config(self):
+        config = super().get_config()
+        config['reflections'] = self.reflections
+        return config
 
 class Highway(tf.keras.layers.Layer):
     """
