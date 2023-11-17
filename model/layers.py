@@ -11,7 +11,7 @@ class RConv3D(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         # Create a trainable weight variable for this layer.
-        self.conv = tf.keras.layers.Conv3D(filters=self.n_filters//2, kernel_size=self.kernel_size, strides=self.strides, kernel_initializer=self.kernel_initializer)
+        self.conv = tf.keras.layers.Conv3D(filters=self.n_filters, kernel_size=self.kernel_size, strides=self.strides, kernel_initializer=self.kernel_initializer)
 
         super(RConv3D, self).build(input_shape)  # Be sure to call this at the end
 
@@ -19,8 +19,8 @@ class RConv3D(tf.keras.layers.Layer):
         n = self.conv(input)
         r = tf.reverse(input, axis=[3])
         n2 = self.conv(r)
-        tf.print(r)
-        return tf.concat([n, n2], axis=-1)
+        
+        return n + n2
 
 class LipNetEncoder(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
