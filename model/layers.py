@@ -103,6 +103,11 @@ class LipNetREncoder(tf.keras.layers.Layer):
 
         return model
 
+    def get_config(self):
+        config = super().get_config()
+        config['reflections'] = self.reflections
+        return config
+    
 class Highway(tf.keras.layers.Layer):
     """
         Highway layer made by https://github.com/ParikhKadam
