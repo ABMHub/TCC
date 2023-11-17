@@ -69,7 +69,7 @@ class LipNetREncoder(tf.keras.layers.Layer):
     def build(self, *args):
         self.conv = []
 
-        for i, (kernel_size, strides) in enumerate([[(3, 5, 5), (1, 2, 3)], [(3, 5, 5), (1, 1, 1)], [(3, 3, 3), (1, 1, 1)]]):
+        for i, (kernel_size, strides) in enumerate([[(3, 5, 5), (1, 2, 2)], [(3, 5, 5), (1, 1, 1)], [(3, 3, 3), (1, 1, 1)]]):
             if self.reflections > i:
                 self.conv.append(RConv3D(filters=32, kernel_size=kernel_size, strides=strides, kernel_initializer=self.w_init))
             else:
