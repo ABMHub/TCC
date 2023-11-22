@@ -5,8 +5,13 @@ from model.loss import CTCLoss
 from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
 
 class Architecture():
-  def __init__(self):
+  def __init__(self, half_frame : bool = False):
     self.name = "Empty"
+    
+  def adjust(self, kwargs : dict):
+    if kwargs.get("half_frame"):
+      f, w, h, c = self.shape
+      self.shape = (f, w//2, h, c)
 
   def get_model(self):
     raise NotImplementedError 
@@ -16,12 +21,14 @@ class Architecture():
     
 
 class LipNet(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = 'LipNet'
+    self.shape = (75, 100, 50, 3)
+    self.adjust(kwargs)
 
   def get_model(self):
     K.clear_session()
-    input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
+    input = tf.keras.layers.Input(shape=self.shape)
 
     model = LipNetEncoder()(input)
 
@@ -42,13 +49,15 @@ class LipNet(Architecture):
     model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
 
 class LCANet(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = 'LCANet'
+    self.shape = (75, 100, 50, 3)
+    self.adjust(kwargs)
 
   def get_model(self):
     K.clear_session()
     # LCANet
-    input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
+    input = tf.keras.layers.Input(shape=self.shape)
     
     model = LipNetEncoder()(input)
 
@@ -73,11 +82,13 @@ class LCANet(Architecture):
     model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
   
 class LipFormer(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = 'LipFormer'  
+    self.shape = (75, 160, 80, 3)
+    self.adjust(kwargs)
 
   def get_model(self):
-    visual_input = tf.keras.layers.Input(shape=(75, 160, 80, 3), name="visual_input")
+    visual_input = tf.keras.layers.Input(shape=self.shape, name="visual_input")
     landmark_input = tf.keras.layers.Input(shape=(75, 340), name="landmark_input")
 
     visual_model = LipNetEncoder()(visual_input)
@@ -109,11 +120,13 @@ class LipFormer(Architecture):
     model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
 
 class m3D_2D_BLSTM(Architecture):
-  def __init__(self):
+  def __init__(self, **kwargs):
     self.name = '3D 2D BLSTM'
+    self.shape = (75, 100, 50, 3)
+    self.adjust(kwargs)
     
   def get_model(self):
-    input = tf.keras.layers.Input(shape=(75, 100, 50, 3))
+    input = tf.keras.layers.Input(shape=self.shape)
 
     model = tf.keras.layers.BatchNormalization()(input)
 

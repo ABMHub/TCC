@@ -76,7 +76,7 @@ class LipReadingModel():
     self.evaluation.to_csv(path)
     self.model_path = path
 
-  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_only : bool = False, unseen_speakers : bool = False, landmark_features : bool = False):
+  def load_data(self, x_path : str, y_path : str, batch_size : int = 32, validation_only : bool = False, unseen_speakers : bool = False, landmark_features : bool = False, half_frame : bool = False):
     """Carrega dados e geradores no objeto LCANet.
     As seeds dos geradores são fixas.
 
@@ -87,7 +87,7 @@ class LipReadingModel():
         validation_slice (float, optional): porcentagem de dados separados para validação. Defaults to 0.2.
         validation_only (bool, optional): _description_. Defaults to False.
     """
-    self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers, landmark_features = landmark_features)
+    self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers, landmark_features = landmark_features, half_frame=half_frame)
     self.evaluation.data["augmentation"] = self.evaluation.data["augmentation"] or self.data["train"].video_gen.aug_name
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None, patience = 0) -> None:

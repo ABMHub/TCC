@@ -67,6 +67,22 @@ class SingleWords(Augmentation):
 
     return align, video
   
+class HalfFrame(Augmentation):
+  def __init__(self):
+    self.name = "half frame"
+    self.chance = 0.5
+
+  def __call__(self, video, align, **kwargs):
+    dice = random.random()
+    dim = video.shape[2]
+    if dice < self.chance:
+      video = np.array(video[:,:,0:dim//2,:])
+
+    else:
+      video = np.flip(video[:,:,dim//2:dim,:], axis=2)
+
+    return align, video
+  
 class VideoGenerator:
   def __init__(self, 
                augs : list[Augmentation],
@@ -75,7 +91,9 @@ class VideoGenerator:
                std : float,
 
                landmark_mean = None,
-               landmark_std = None):
+               landmark_std = None,
+               
+               half_frame : bool = False):
     
     self.augs = augs
     self.info = None
@@ -83,6 +101,8 @@ class VideoGenerator:
     self.mean, self.std = mean, std
 
     self.lm_mean, self.lm_std = landmark_mean, landmark_std
+    self.half_frame = HalfFrame()
+    if half_frame is False: self.half_frame = lambda a: a
 
   @property
   def aug_name(self):
@@ -101,6 +121,7 @@ class VideoGenerator:
     y = None
 
     video = video_loader(video_path)
+    _, video = self.half_frame(video, align)
     if self.training is True:
       for aug in self.augs:
         align, video = aug(video, align, epoch=epoch)
