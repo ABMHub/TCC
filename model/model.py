@@ -91,7 +91,7 @@ class LipReadingModel():
     """
     self.data = get_training_data(x_path, y_path, batch_size = batch_size, validation_only = validation_only, unseen_speakers = unseen_speakers, landmark_features = landmark_features, post_processing=post_processing)
     self.evaluation.data["augmentation"] = self.evaluation.data["augmentation"] or self.data["train"].video_gen.aug_name
-    self.evaluation.data["post_process"] = self.evaluation.data["post_process"] or self.data["train"].video_gen.post_name
+    self.evaluation.data["lazy_process"] = self.evaluation.data["lazy_process"] or self.data["train"].video_gen.post_name
     self.evaluation.data["data_split"] = self.evaluation.data["data_split"] or "unseen" if unseen_speakers else "ovelapped"
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None, patience = 0) -> None:

@@ -37,7 +37,7 @@ class Evaluation:
 
       "best_last": None,
 
-      "post_process": None,
+      "lazy_process": None,
       "data_split": None,
     }
 

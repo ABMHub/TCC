@@ -4,14 +4,20 @@ from keras import backend as K
 from model.loss import CTCLoss
 from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
 
+from math import ceil
+
 class Architecture():
-  def __init__(self, half_frame : bool = False):
+  def __init__(self, half_frame : bool = False, frame_sample = 1):
     self.name = "Empty"
     
   def adjust(self, kwargs : dict):
+    f, w, h, c = self.shape
     if kwargs.get("half_frame"):
-      f, w, h, c = self.shape
       self.shape = (f, w//2, h, c)
+
+    rate = kwargs.get("frame_sample")
+    if rate and rate > 1:
+      self.shape = (ceil(f/rate), w, h, c)
 
   def get_model(self):
     raise NotImplementedError 
@@ -24,6 +30,17 @@ class LipNet(Architecture):
   def __init__(self, **kwargs):
     self.name = 'LipNet'
     self.shape = (75, 100, 50, 3)
+
+    self.rnn_size = 256
+    if kwargs.get("half_frame"):
+      self.rnn_size /= 2
+
+    rate = kwargs.get("frame_sample")
+    if rate and rate > 1:
+      self.rnn_size /= rate
+
+    self.rnn_size = int(self.rnn_size)
+
     self.adjust(kwargs)
 
   def get_model(self):
@@ -34,8 +51,8 @@ class LipNet(Architecture):
 
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(model)
 
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True, kernel_initializer="orthogonal"))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.rnn_size, return_sequences=True, kernel_initializer="orthogonal"))(model)
+    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.rnn_size, return_sequences=True, kernel_initializer="orthogonal"))(model)
 
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28, kernel_initializer="he_normal"))(model)
     model = tf.keras.layers.Activation("softmax")(model)

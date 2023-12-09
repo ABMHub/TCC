@@ -98,7 +98,7 @@ def main(args = None):
       
       checkpoint_path = args["save_model_path"] + "_best"
 
-      arch_obj = architectures[architecture](half_frame = args["half_frame"])
+      arch_obj = architectures[architecture](half_frame = args["half_frame"], frame_sample = args["frame_sample"])
 
     model = LipReadingModel(
       model_path = args["trained_model_path"],
