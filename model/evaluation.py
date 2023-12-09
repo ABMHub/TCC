@@ -6,10 +6,10 @@ from os.path import join, exists
 def bleu(references : list[str], predictions : list[str], multigram : bool = False) -> float:
   references_p = [[reference.split()] for reference in references]
   predictions_p = [prediction.split() for prediction in predictions]
-  wheights = [0.25, 0.25, 0.25, 0.25]
+  weights = [0.25, 0.25, 0.25, 0.25]
   if not multigram:
-    wheights = [1, 0, 0, 0]
-  return np.mean([sentence_bleu(ref, pred, wheights) for ref, pred in zip(references_p, predictions_p)])
+    weights = [1, 0, 0, 0]
+  return np.mean([sentence_bleu(ref, pred, weights) for ref, pred in zip(references_p, predictions_p)])
 
 class Evaluation:
   def __init__(self):
@@ -29,11 +29,6 @@ class Evaluation:
       "bleu": None,
       "bleu_multigram": None,
 
-      # "cer_nolm": None,
-      # "wer_nolm": None,
-      # "bleu_nolm": None,
-      # "bleu_multigram_nolm": None,
-
       "params": None,
       # "seconds_per_batch": None,
       # "batches_per_epoch": None,
@@ -41,6 +36,9 @@ class Evaluation:
       "prediction_time": None,
 
       "best_last": None,
+
+      "post_process": None,
+      "data_split": None,
     }
 
   def to_csv(self, folder_path : str):

@@ -3,7 +3,8 @@ import numpy as np
 from generator.align_processing import Align
 import tqdm
 import random
-from generator.augmentation import VideoGenerator, MirrorAug, JitterAug, SingleWords
+from generator.augmentation import MirrorAug, JitterAug, SingleWords, Augmentation
+from generator.video_generator import VideoGenerator
 
 RANDOM_SEED = 42
   
@@ -12,7 +13,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
                config, 
                batch_size : int, 
                training : bool,
-               half_frame : bool = False) -> None:
+               post_processing : Augmentation = None) -> None:
     super().__init__()
 
     random.seed(RANDOM_SEED)
@@ -52,7 +53,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
         self.lm_mean, self.lm_std_var = self.__get_std_params_landmarks()
 
     augs = [MirrorAug(), JitterAug()]
-    self.video_gen = VideoGenerator(augs, self.training, self.mean, self.std_var, self.lm_mean, self.lm_std_var, half_frame)
+    self.video_gen = VideoGenerator(augs, self.training, self.mean, self.std_var, self.lm_mean, self.lm_std_var, post_processing)
 
   def get_strings(self):
     return [" ".join(elem.sentence) for elem in self.aligns]

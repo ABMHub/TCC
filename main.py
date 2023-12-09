@@ -24,8 +24,10 @@ def main(args = None):
   train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
   train.add_argument("-a", "--architecture", required=False, default = "lipnet", help="Opção para escolher uma arquitetura diferente para treino. Opções: [lipnet, lcanet, bilstm, lipformer].")
   train.add_argument("-p", "--patience", required=False, default = 25, type=int, help="Paciencia para o early stopping.")
+
   train.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
   train.add_argument("-hf", "--half_frame", required=False, action="store_true", default=False, help="Opção para treinar e testar apenas com metade do rosto em cada quadro")
+  train.add_argument("-fs", "--frame_sample", required=False, default=1, type=int, help="Opção para treinar e testar com frames subamostrados")
 
   train.add_argument("-n", "--experiment_name", required=False, default = None, type=str, help="O nome do experimento, será inserido nos logs.")
   train.add_argument("-d", "--description", required=False, default = None, type=str, help="A descrição do experimento, será inserida nos logs.")
@@ -63,6 +65,8 @@ def main(args = None):
     from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer
     from model.decoder import RawCTCDecoder, NgramCTCDecoder, SpellCTCDecoder
     from model.model import LipReadingModel
+
+    from generator.post_processing import HalfFrame, FrameSampler
     
     architectures = {
       "lipnet": LipNet,
@@ -70,6 +74,13 @@ def main(args = None):
       "blstm":  m3D_2D_BLSTM,
       "lipformer": LipFormer,
     }
+
+    post_processing = None
+    if args["half_frame"]:
+      post_processing = HalfFrame()
+
+    elif args["frame_sample"] > 1:
+      post_processing = FrameSampler(rate = args["frame_sample"])
 
     multi_gpu = False
     if args["choose_gpu"] is not None:
@@ -105,7 +116,7 @@ def main(args = None):
       validation_only = False,
       unseen_speakers = args["unseen_speakers"],
       landmark_features = args["landmark_features"],
-      half_frame=args["half_frame"]
+      post_processing = post_processing
     )
 
     if mode == "train":

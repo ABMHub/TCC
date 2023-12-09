@@ -2,6 +2,8 @@ import os
 import json
 import random
 import numpy as np
+
+from generator.augmentation import Augmentation
 from generator.batch_generator import BatchGenerator
 
 RANDOM_SEED = 42
@@ -75,7 +77,7 @@ def get_training_data(videos_path       : str,
                       validation_only   : bool = False, 
                       unseen_speakers   : bool = False, 
                       landmark_features : bool = False, 
-                      half_frame        : bool = False) -> dict[str, BatchGenerator]:
+                      post_processing   : Augmentation = None) -> dict[str, BatchGenerator]:
   config_file = os.path.join(videos_path, "config.json")
   config_exists = os.path.isfile(config_file)
 
@@ -110,7 +112,7 @@ def get_training_data(videos_path       : str,
 
   train = None
   if not validation_only or dataconfig.mean is None or (dataconfig.lm and dataconfig.lm_mean is None):
-    train = BatchGenerator(dataconfig, batch_size, training=True, half_frame=half_frame)
+    train = BatchGenerator(dataconfig, batch_size, training=True, post_processing=post_processing)
 
   dataconfig.mean, dataconfig.std = train.mean, train.std_var
   DataConfig.save_config(train.mean, train.std_var, mode, config_file)
@@ -119,6 +121,6 @@ def get_training_data(videos_path       : str,
     dataconfig.lm_mean, dataconfig.lm_std = train.lm_mean, train.lm_std_var
     DataConfig.save_config(train.lm_mean, train.lm_std_var, mode, landmark_config_file)
 
-  val = BatchGenerator(dataconfig, batch_size, training=False, half_frame=half_frame)
+  val = BatchGenerator(dataconfig, batch_size, training=False, post_processing=post_processing)
 
   return {"train": train, "validation": val}
