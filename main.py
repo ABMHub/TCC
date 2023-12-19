@@ -27,7 +27,7 @@ def main(args = None):
 
   train.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
   train.add_argument("-hf", "--half_frame", required=False, action="store_true", default=False, help="Opção para treinar e testar apenas com metade do rosto em cada quadro")
-  train.add_argument("-fs", "--frame_sample", required=False, default=1, type=int, help="Opção para treinar e testar com frames subamostrados")
+  train.add_argument("-fs", "--frame_sample", required=False, default=1, type=float, help="Opção para treinar e testar com frames subamostrados")
 
   train.add_argument("-n", "--experiment_name", required=False, default = None, type=str, help="O nome do experimento, será inserido nos logs.")
   train.add_argument("-d", "--description", required=False, default = None, type=str, help="A descrição do experimento, será inserida nos logs.")

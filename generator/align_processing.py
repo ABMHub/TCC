@@ -43,6 +43,17 @@ class Align:
     return beg, end, cp
 
   @staticmethod
+  def number2sentence(number = list[int]):
+    ret = ""
+    for num in number:
+      if 0 <= num < 26:
+        ret += chr(num + ord('a'))
+      elif num == 26:
+        ret += " "
+    
+    return ret
+
+  @staticmethod
   def sentence2number(sentence : list[str]) -> list[int]:
     char_string = []
     for wrd in sentence:

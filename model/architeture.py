@@ -7,24 +7,30 @@ from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAt
 from math import ceil
 
 class Architecture():
-  def __init__(self, half_frame : bool = False, frame_sample = 1):
+  def __init__(self, half_frame : bool = False, frame_sample = 1, **kwargs):
     self.name = "Empty"
-    
-  def adjust(self, kwargs : dict):
+
     f, w, h, c = self.shape
-    if kwargs.get("half_frame"):
+
+    self.rnn_size = 256
+    if half_frame:
+      self.rnn_size /= 2
       self.shape = (f, w//2, h, c)
 
-    rate = kwargs.get("frame_sample")
-    if rate and rate > 1:
-      self.shape = (ceil(f/rate), w, h, c)
+    if frame_sample and frame_sample > 1:
+      self.rnn_size /= frame_sample
+      self.shape = (ceil(f/frame_sample), w, h, c)
+    
+    self.rnn_size = int(self.rnn_size)
+    self.metrics = []
 
+    self.model : tf.keras.Model = None
+    
   def get_model(self):
     raise NotImplementedError 
   
-  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
+  def compile_model(self, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
     raise NotImplementedError
-    
 
 class LipNet(Architecture):
   def __init__(self, **kwargs):
@@ -32,16 +38,8 @@ class LipNet(Architecture):
     self.shape = (75, 100, 50, 3)
 
     self.rnn_size = 256
-    if kwargs.get("half_frame"):
-      self.rnn_size /= 2
-
-    rate = kwargs.get("frame_sample")
-    if rate and rate > 1:
-      self.rnn_size /= rate
-
-    self.rnn_size = int(self.rnn_size)
-
-    self.adjust(kwargs)
+    
+    super().__init__(**kwargs)
 
   def get_model(self):
     K.clear_session()
@@ -62,14 +60,15 @@ class LipNet(Architecture):
 
     return model
 
-  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
+  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss, **kwargs)
 
 class LCANet(Architecture):
   def __init__(self, **kwargs):
     self.name = 'LCANet'
     self.shape = (75, 100, 50, 3)
-    self.adjust(kwargs)
+
+    super().__init__(**kwargs)
 
   def get_model(self):
     K.clear_session()
@@ -95,14 +94,15 @@ class LCANet(Architecture):
 
     return model
 
-  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
+  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss, **kwargs)
   
 class LipFormer(Architecture):
   def __init__(self, **kwargs):
     self.name = 'LipFormer'  
     self.shape = (75, 160, 80, 3)
-    self.adjust(kwargs)
+
+    super().__init__(**kwargs)
 
   def get_model(self):
     visual_input = tf.keras.layers.Input(shape=self.shape, name="visual_input")
@@ -133,14 +133,15 @@ class LipFormer(Architecture):
 
     return model
   
-  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
+  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss, **kwargs)
 
 class m3D_2D_BLSTM(Architecture):
   def __init__(self, **kwargs):
     self.name = '3D 2D BLSTM'
     self.shape = (75, 100, 50, 3)
-    self.adjust(kwargs)
+
+    super().__init__(**kwargs)
     
   def get_model(self):
     input = tf.keras.layers.Input(shape=self.shape)
@@ -180,5 +181,5 @@ class m3D_2D_BLSTM(Architecture):
 
     return model
   
-  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss()):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss)
+  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
+    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss, **kwargs)

@@ -24,8 +24,8 @@ class VideoGenerator:
     self.post_processing = post_processing or Augmentation()
     self.n_frames = 75
 
-    if post_processing.name == "frame sampler":
-      self.n_frames = ceil(self.n_frames / 2)
+    if post_processing and post_processing.name == "frame sampler":
+      self.n_frames = ceil(self.n_frames / post_processing.rate)
 
   @property
   def aug_name(self):
