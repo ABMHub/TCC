@@ -77,7 +77,11 @@ def get_training_data(videos_path       : str,
                       validation_only   : bool = False, 
                       unseen_speakers   : bool = False, 
                       landmark_features : bool = False, 
-                      post_processing   : Augmentation = None) -> dict[str, BatchGenerator]:
+                      post_processing   : Augmentation = None,
+                      augmentation      : list[Augmentation] = None,
+                      is_time_series    : bool = False
+                      ) -> dict[str, BatchGenerator]:
+  
   config_file = os.path.join(videos_path, "config.json")
   config_exists = os.path.isfile(config_file)
 
@@ -112,7 +116,7 @@ def get_training_data(videos_path       : str,
 
   train = None
   if not validation_only or dataconfig.mean is None or (dataconfig.lm and dataconfig.lm_mean is None):
-    train = BatchGenerator(dataconfig, batch_size, training=True, post_processing=post_processing)
+    train = BatchGenerator(dataconfig, batch_size, training=True, post_processing=post_processing, augmentation=augmentation, is_time_series=is_time_series)
 
   dataconfig.mean, dataconfig.std = train.mean, train.std_var
   DataConfig.save_config(train.mean, train.std_var, mode, config_file)
@@ -121,6 +125,6 @@ def get_training_data(videos_path       : str,
     dataconfig.lm_mean, dataconfig.lm_std = train.lm_mean, train.lm_std_var
     DataConfig.save_config(train.lm_mean, train.lm_std_var, mode, landmark_config_file)
 
-  val = BatchGenerator(dataconfig, batch_size, training=False, post_processing=post_processing)
+  val = BatchGenerator(dataconfig, batch_size, training=False, post_processing=post_processing, augmentation=[], is_time_series=is_time_series)
 
   return {"train": train, "validation": val}

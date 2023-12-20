@@ -56,20 +56,23 @@ def main(args = None):
   preprocess.add_argument("height", help="Altura da extração. 80 para lipformer, 50 para as outras", type=int)
   preprocess.add_argument("crop_mode", help="Modo de extração de boca. Tipo de recorte que será feito após a transformação afim. Opções: [resize, crop]")
   preprocess.add_argument("-lm", "--landmark_features", required=False, action="store_true", help="Indica a extração das features de landmark")
+  preprocess.add_argument("-ts", "--time_series", required=False, action="store_true", help="Opção para extrair apenas as landmark features como serie temporal")
 
   args = args or vars(ap.parse_args())
 
   mode = args["mode"]
 
   if mode == "train" or mode == "test":
-    from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer
+    from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer, LipNet1D
     from model.decoder import RawCTCDecoder, NgramCTCDecoder, SpellCTCDecoder
     from model.model import LipReadingModel
+    from generator.augmentation import JitterAug, MirrorAug
 
     from generator.post_processing import HalfFrame, FrameSampler
     
     architectures = {
       "lipnet": LipNet,
+      "lipnet1d": LipNet1D,
       "lcanet": LCANet,
       "blstm":  m3D_2D_BLSTM,
       "lipformer": LipFormer,
@@ -110,13 +113,15 @@ def main(args = None):
     )
 
     model.load_data(
-      x_path = args["dataset_path"],
-      y_path = args["alignment_path"], 
-      batch_size = args["batch_size"],
-      validation_only = False,
-      unseen_speakers = args["unseen_speakers"],
+      x_path            = args["dataset_path"],
+      y_path            = args["alignment_path"], 
+      batch_size        = args["batch_size"],
+      validation_only   = False,
+      unseen_speakers   = args["unseen_speakers"],
       landmark_features = args["landmark_features"],
-      post_processing = post_processing
+      post_processing   = post_processing,
+      augmentation      = [MirrorAug(), JitterAug()] if arch_obj.name.lower() != "lipnet 1d" else [],
+      is_time_series    = arch_obj.name.lower() == "lipnet 1d"
     )
 
     if mode == "train":
@@ -163,7 +168,8 @@ def main(args = None):
       dest_folder = mouths_path,
       landmark_features = args["landmark_features"],
       shape = (args["width"], args["height"]),
-      mode = args["crop_mode"]
+      mode = args["crop_mode"],
+      time_series = args["time_series"]
     )
 
 if __name__ == '__main__':

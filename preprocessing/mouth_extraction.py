@@ -16,17 +16,32 @@ VIDEO_HEIGHT = 720
 VIDEO_WIDTH  = 576
 
 def __video_class_wrapper(args):
-  orig, verbose, path, landmark_features, shape, mode = args
+  orig, verbose, path, landmark_features, shape, mode, time_series = args
   create_dir_recursively("/".join(path.split("/")[:-1]))
   try:
     obj = FaceVideo(orig, shape, mode = mode, verbose = 0 if verbose < 2 else 1)
-    obj.get_mouth_video(path)
-    if landmark_features:
-      obj.extract_landmark_features(path.replace("npz_mouths", "landmark_features"))
+    if not time_series:
+      obj.get_mouth_video(path)
+      if landmark_features:
+        obj.extract_landmark_features(path.replace("npz_mouths", "landmark_features"))
+    else:
+      obj.get_time_series(path)
   except (IndexError, TypeError, AssertionError) as err:
     print(f"Video {orig} com erro\n{err}")
 
-def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[int] = (100, 50), verbose = 1, numpy_file = True, process_count = 12, landmark_features = False, mode = "resize"):
+def convert_all_videos_multiprocess(
+    path, 
+    extension, 
+    dest_folder, 
+    shape : tuple[int] = (100, 50), 
+    verbose = 1, 
+    numpy_file = True, 
+    process_count = 12, 
+    landmark_features = False, 
+    mode = "resize", 
+    time_series = False
+    ):
+  
   assert mode in ["crop", "resize"], f"Tipo de pré-processamento \"{mode}\" não reconhecido"
 
   print("Localizando todos os vídeos...")
@@ -39,7 +54,7 @@ def convert_all_videos_multiprocess(path, extension, dest_folder, shape : tuple[
   args = []
   for orig in orig_dest_videos:
     if not os.path.isfile(orig_dest_videos[orig] + dest_extension) or (landmark_features and not os.path.isfile(orig_dest_videos[orig].replace("npz_mouths", "landmark_features") + dest_extension)):
-      args.append((orig, verbose, orig_dest_videos[orig], landmark_features, shape, mode))
+      args.append((orig, verbose, orig_dest_videos[orig], landmark_features, shape, mode, time_series))
 
   [None for _ in tqdm.tqdm(pool.imap_unordered(__video_class_wrapper, args), desc="Convertendo Video", disable=verbose<=0, total=len(orig_dest_videos), initial=len(orig_dest_videos) - len(args))]
 
@@ -79,6 +94,13 @@ class FaceVideo:
       for frame in self.mouth_imgs:
         n_video.write(frame)
       n_video.release()
+
+  def get_time_series(self, path):
+    # opcional : alinhar rosto
+    time_series = np.array([face.lm for face in self.frames])
+    assert time_series.shape == (75, 68, 2), f"Shape criado inválido: {time_series.shape}"
+
+    np.savez(path + ".npz", time_series)
 
   def extract_landmark_features(self, path):
     cos_matrix = []

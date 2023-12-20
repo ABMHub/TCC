@@ -13,7 +13,8 @@ class VideoGenerator:
                landmark_mean = None,
                landmark_std = None,
                
-               post_processing : Augmentation = None):
+               post_processing : Augmentation = None,
+               apply_padding   : bool         = True):
     
     self.augs = augs
     self.info = None
@@ -23,6 +24,7 @@ class VideoGenerator:
     self.lm_mean, self.lm_std = landmark_mean, landmark_std
     self.post_processing = post_processing or Augmentation()
     self.n_frames = 75
+    self.apply_padding = apply_padding
 
     if post_processing and post_processing.name == "frame sampler":
       self.n_frames = ceil(self.n_frames / post_processing.rate)
@@ -52,7 +54,7 @@ class VideoGenerator:
 
     video = video_loader(video_path)
     _, video = self.post_processing(video, align)
-    if self.training is True:
+    if self.training is True and self.augs is not None:
       for aug in self.augs:
         align, video = aug(video, align, epoch=epoch)
 
@@ -62,8 +64,9 @@ class VideoGenerator:
     if standardize:
       x = (x - self.mean)/self.std
 
-    pad_size = self.n_frames - x.shape[0]
-    x = np.pad(x, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+    if self.apply_padding:
+      pad_size = self.n_frames - x.shape[0]
+      x = np.pad(x, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
 
     return x, y
 
