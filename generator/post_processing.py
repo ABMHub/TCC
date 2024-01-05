@@ -35,3 +35,21 @@ class FrameSampler(Augmentation):
   def __call__(self, video, align, **kwargs):
     return align, video[self.indexes]
   
+class MouthOnly(Augmentation):
+  def __init__(self, **kwargs):
+    self.name = "mouth only"
+
+  def __call__(self, video, align, **kwargs):
+    return align, video[:, 48:60]
+  
+class MouthOnlyCentroid(Augmentation):
+  def __init__(self, **kwargs):
+    self.name = "mouth only"
+
+  def __call__(self, video, align, **kwargs):
+    mouth = video[:, 48:60]
+    centroid = mouth.mean(axis=1)
+    coords = mouth-np.expand_dims(centroid, 1)
+    mx = np.abs(coords).max()
+
+    return align, coords/mx

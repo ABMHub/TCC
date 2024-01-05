@@ -88,7 +88,8 @@ class LipReadingModel():
       landmark_features : bool               = False, 
       post_processing   : Augmentation       = None,
       augmentation      : list[Augmentation] = None,
-      is_time_series    : bool               = False
+      is_time_series    : bool               = False,
+      standardize       : bool               = True,
     ):
     
     """Carrega dados e geradores no objeto Lipreading.
@@ -110,12 +111,13 @@ class LipReadingModel():
       landmark_features = landmark_features, 
       post_processing   = post_processing,
       augmentation      = augmentation,
-      is_time_series    = is_time_series
+      is_time_series    = is_time_series,
+      standardize       = standardize,
     )
     
     self.evaluation.data["augmentation"] = self.evaluation.data["augmentation"] or self.data["train"].video_gen.aug_name
     self.evaluation.data["lazy_process"] = self.evaluation.data["lazy_process"] or self.data["train"].video_gen.post_name
-    self.evaluation.data["data_split"] = self.evaluation.data["data_split"] or "unseen" if unseen_speakers else "ovelapped"
+    self.evaluation.data["data_split"]   = self.evaluation.data["data_split"]   or "unseen" if unseen_speakers else "ovelapped"
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None, patience = 0) -> None:
     """Realiza o treinamento do modelo.

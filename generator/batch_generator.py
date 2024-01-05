@@ -11,11 +11,13 @@ RANDOM_SEED = 42
 class BatchGenerator(tf.keras.utils.Sequence):
   def __init__(self, 
                config, 
-               batch_size : int, 
-               training : bool,
-               post_processing : Augmentation = None,
-               augmentation : list[Augmentation] = None,
-               is_time_series : bool = False) -> None:
+               batch_size      : int, 
+               training        : bool,
+               post_processing : Augmentation       = None,
+               augmentation    : list[Augmentation] = None,
+               is_time_series  : bool               = False,
+               standardize     : bool               = True
+               ) -> None:
     super().__init__()
 
     random.seed(RANDOM_SEED)
@@ -55,7 +57,17 @@ class BatchGenerator(tf.keras.utils.Sequence):
         self.lm_mean, self.lm_std_var = 0, 1
         self.lm_mean, self.lm_std_var = self.__get_std_params_landmarks()
 
-    self.video_gen = VideoGenerator(augmentation, self.training, self.mean, self.std_var, self.lm_mean, self.lm_std_var, post_processing, not self.is_time_series)
+    self.video_gen = VideoGenerator(
+      augs            = augmentation, 
+      training        = self.training, 
+      mean            = self.mean, 
+      std             = self.std_var, 
+      landmark_mean   = self.lm_mean, 
+      landmark_std    = self.lm_std_var, 
+      post_processing = post_processing, 
+      apply_padding   = not self.is_time_series, 
+      standardize     = standardize
+      )
 
   def get_strings(self):
     return [" ".join(elem.sentence) for elem in self.aligns]

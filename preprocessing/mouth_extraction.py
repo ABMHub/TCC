@@ -97,7 +97,9 @@ class FaceVideo:
 
   def get_time_series(self, path):
     # opcional : alinhar rosto
-    time_series = np.array([face.lm for face in self.frames])
+    for frame_obj in tqdm.tqdm(self.frames, desc="Alinhando frames", disable=self.verbose==0):
+      frame_obj.transform() 
+    time_series = np.array([face.detect_landmarks()[1] for face in self.frames])
     assert time_series.shape == (75, 68, 2), f"Shape criado inválido: {time_series.shape}"
 
     np.savez(path + ".npz", time_series)

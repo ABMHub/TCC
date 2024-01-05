@@ -14,7 +14,9 @@ class VideoGenerator:
                landmark_std = None,
                
                post_processing : Augmentation = None,
-               apply_padding   : bool         = True):
+               apply_padding   : bool         = True,
+               standardize     : bool         = True
+               ):
     
     self.augs = augs
     self.info = None
@@ -25,6 +27,7 @@ class VideoGenerator:
     self.post_processing = post_processing or Augmentation()
     self.n_frames = 75
     self.apply_padding = apply_padding
+    self.standardize = standardize
 
     if post_processing and post_processing.name == "frame sampler":
       self.n_frames = ceil(self.n_frames / post_processing.rate)
@@ -46,7 +49,7 @@ class VideoGenerator:
   def load_video(self,
                  video_path,
                  align, epoch,
-                 standardize = True):
+                 standardize = None):
     extension = video_path.split(".")[-1]
     video_loader = loaders[extension]
 
@@ -61,7 +64,8 @@ class VideoGenerator:
     y = align.number_string
 
     x = np.array(video)
-    if standardize:
+    standardize = self.standardize
+    if standardize or (standardize is None and self.standardize):
       x = (x - self.mean)/self.std
 
     if self.apply_padding:

@@ -28,6 +28,7 @@ def main(args = None):
   train.add_argument("-lm", "--landmark_features", required=False, action="store_true", default=False, help="Opção para habilitar passagem de landmark features para o modelo")
   train.add_argument("-hf", "--half_frame", required=False, action="store_true", default=False, help="Opção para treinar e testar apenas com metade do rosto em cada quadro")
   train.add_argument("-fs", "--frame_sample", required=False, default=1, type=float, help="Opção para treinar e testar com frames subamostrados")
+  train.add_argument("-lts", "--lazy_ts_mode", required=False, default=0, type=int, help="Modo de processamento para time series. 1: todos os pontos; 2: apenas boca; 3: boca normalizada pelo centroide")
 
   train.add_argument("-n", "--experiment_name", required=False, default = None, type=str, help="O nome do experimento, será inserido nos logs.")
   train.add_argument("-d", "--description", required=False, default = None, type=str, help="A descrição do experimento, será inserida nos logs.")
@@ -68,7 +69,7 @@ def main(args = None):
     from model.model import LipReadingModel
     from generator.augmentation import JitterAug, MirrorAug
 
-    from generator.post_processing import HalfFrame, FrameSampler
+    from generator.post_processing import HalfFrame, FrameSampler, MouthOnly, MouthOnlyCentroid
     
     architectures = {
       "lipnet": LipNet,
@@ -78,12 +79,24 @@ def main(args = None):
       "lipformer": LipFormer,
     }
 
+    lazy_ts = {
+      1: None,
+      2: MouthOnly,
+      3: MouthOnlyCentroid
+    }
+
     post_processing = None
+    standardize = True
     if args["half_frame"]:
       post_processing = HalfFrame()
 
     elif args["frame_sample"] > 1:
       post_processing = FrameSampler(rate = args["frame_sample"])
+
+    elif args["lazy_ts_mode"] > 1:
+      post_processing = lazy_ts[args["lazy_ts_mode"]]()
+      if args["lazy_ts_mode"] == 3:
+        standardize = False
 
     multi_gpu = False
     if args["choose_gpu"] is not None:
@@ -121,7 +134,8 @@ def main(args = None):
       landmark_features = args["landmark_features"],
       post_processing   = post_processing,
       augmentation      = [MirrorAug(), JitterAug()] if arch_obj.name.lower() != "lipnet 1d" else [],
-      is_time_series    = arch_obj.name.lower() == "lipnet 1d"
+      is_time_series    = arch_obj.name.lower() == "lipnet 1d",
+      standardize       = standardize,
     )
 
     if mode == "train":
