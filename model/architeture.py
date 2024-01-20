@@ -3,6 +3,8 @@ from keras import backend as K
 
 from model.loss import CTCLoss
 from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
+from model.custom import CustomModel
+from model.metrics import WER
 
 from math import ceil
 
@@ -25,13 +27,27 @@ class Architecture():
     self.rnn_size = int(self.rnn_size)
     self.metrics = []
 
-    self.model : tf.keras.Model = None
+    self.model : CustomModel
+    self.get_model()
     
   def get_model(self):
     raise NotImplementedError 
   
-  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss, **kwargs)
+  def fit(self, *args, **kwargs):
+    self.model.fit(*args, **kwargs)
+
+  def predict(self, *args, **kwargs):
+    self.model.predict(*args, **kwargs)
+  
+  def compile(self, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
+    print(kwargs)
+    self.model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss, **kwargs)
+
+class SavedModel(Architecture):
+  def __init__(self, path : str, name = 'Empty'):
+    self.name = name
+
+    self.model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss(), "CascadedAttention": CascadedAttention})
 
 class LipNet1D(Architecture):
   def __init__(self, **kwargs):
@@ -77,10 +93,7 @@ class LipNet1D(Architecture):
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28, kernel_initializer="he_normal"))(model)
     model = tf.keras.layers.Activation("softmax")(model)
 
-    model = tf.keras.Model(input, model)
-    self.compile_model(model)
-
-    return model
+    self.model = CustomModel(input, model)
 
 class LipNet(Architecture):
   def __init__(self, **kwargs):
@@ -105,10 +118,7 @@ class LipNet(Architecture):
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28, kernel_initializer="he_normal"))(model)
     model = tf.keras.layers.Activation("softmax")(model)
 
-    model = tf.keras.Model(input, model)
-    self.compile_model(model)
-
-    return model
+    self.model = CustomModel(input, model)
 
 class LCANet(Architecture):
   def __init__(self, **kwargs):
@@ -136,10 +146,7 @@ class LCANet(Architecture):
     # model = tf.keras.layers.Dense(28)(model)
     model = tf.keras.layers.Activation("softmax")(model)
 
-    model = tf.keras.Model(input, model)
-    self.compile_model(model)
-
-    return model
+    self.model = CustomModel(input, model)
 
 class LipFormer(Architecture):
   def __init__(self, **kwargs):
@@ -172,10 +179,8 @@ class LipFormer(Architecture):
 
     model = tf.keras.layers.Dense(28, activation="softmax")(model)
 
-    model = tf.keras.Model([visual_input, landmark_input], model)
-    self.compile_model(model, learning_rate=3e-4)
-
-    return model
+    self.model = CustomModel([visual_input, landmark_input], model)
+    # self.compile_model(model, learning_rate=3e-4)
   
 class m3D_2D_BLSTM(Architecture):
   def __init__(self, **kwargs):
@@ -216,11 +221,7 @@ class m3D_2D_BLSTM(Architecture):
     model = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(200, return_sequences=True))(model)
 
     model = tf.keras.layers.Dense(28, activation="softmax")(model)
-    model = tf.keras.Model(input, model)
-
-    self.compile_model(model)
-
-    return model
+    self.model = CustomModel(input, model)
   
 
 architecture_list = [LipNet(), LipNet1D(), LCANet(), LipFormer(), m3D_2D_BLSTM()]

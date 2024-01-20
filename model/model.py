@@ -19,7 +19,8 @@ from generator.augmentation import Augmentation
 from model.decoder import NgramCTCDecoder, Decoder
 
 from model.evaluation import bleu, Evaluation
-from model.architeture import LipNet, Architecture
+from model.architeture import LipNet, Architecture, SavedModel
+from model.metrics import WER
 
 
 class LipReadingModel():
@@ -50,7 +51,7 @@ class LipReadingModel():
     if model_path is not None:
       self.load_model(model_path)
     else:
-      self.model = architecture.get_model()
+      self.model = architecture
 
     self.evaluation.data["preprocessing_type"] = pre_processing or self.evaluation.data["preprocessing_type"]
     if architecture is not None:
@@ -60,21 +61,16 @@ class LipReadingModel():
 
     self.evaluation.data["experiment_name"] = self.experiment_name or self.evaluation.data["experiment_name"]
     self.evaluation.data["description"] = description or self.evaluation.data["description"]
-    self.evaluation.data["params"] = self.model.count_params() or self.evaluation.data["params"]
+    self.evaluation.data["params"] = self.model.model.count_params() or self.evaluation.data["params"]
 
-  def load_model(self, path : str, inplace = True):
+  def load_model(self, path : str):
     K.clear_session()
     self.model_path = path
-    model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss(), "CascadedAttention": CascadedAttention})
     self.evaluation.from_csv(path)
-
-    if inplace:
-      self.model = model
-
-    return model
+    self.model = SavedModel(path, self.evaluation.data["architecture_name"])
 
   def save_model(self, path : str):
-    self.model.save(path)
+    self.model.model.save(path)
     self.evaluation.to_csv(path)
     self.model_path = path
 
@@ -148,6 +144,7 @@ class LipReadingModel():
     
     # self.evaluation.data["batches_per_epoch"] = self.data[1].generator_steps
 
+    self.model.compile(metrics=[WER(self.data["train"].get_strings())])
     self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, use_multiprocessing=True, workers=2)
     self.evaluation.data["epochs_trained"] = self.data["train"].epoch
 
@@ -197,7 +194,7 @@ class LipReadingModel():
     self.evaluation.data["bleu"] = bleu(true, predictions, False)
     self.evaluation.data["bleu_multigram"] = bleu(true, predictions, True)
 
-    self.evaluation.data["params"] = self.model.count_params()
+    self.evaluation.data["params"] = self.model.model.count_params()
     self.evaluation.data["prediction_time"] = pred_time/len(predictions)
 
     self.evaluation.data["datetime"] = str(datetime.datetime.now())
