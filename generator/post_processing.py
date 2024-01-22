@@ -49,7 +49,6 @@ class MouthOnlyCentroid():
   def __call__(self, video, align, **kwargs):
     mouth = video[:, 48:60]
     centroid = mouth.mean(axis=0)
-    print(centroid.shape)
     coords = mouth-np.expand_dims(centroid, 0)
     mx = np.abs(coords).max(axis=0)
 
