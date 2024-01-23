@@ -40,14 +40,14 @@ class MouthOnly(Augmentation):
     self.name = "mouth only"
 
   def __call__(self, video, align, **kwargs):
-    return align, video[:, 48:60]
+    return align, video[:, 48:68]
   
 class MouthOnlyCentroid():
   def __init__(self, **kwargs):
     self.name = "mouth only"
 
   def __call__(self, video, align, **kwargs):
-    mouth = video[:, 48:60]
+    mouth = video[:, 48:68]
     centroid = mouth.mean(axis=0)
     coords = mouth-np.expand_dims(centroid, 0)
     mx = np.abs(coords).max(axis=0)
