@@ -38,7 +38,7 @@ class LipNet1D(Architecture):
     
     self.name = "LipNet 1D"
 
-    self.shape = (75, 20, 2)
+    self.shape = (75, 20, 12)
 
     self.rnn_size = 256
 
