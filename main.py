@@ -69,7 +69,7 @@ def main(args = None):
     from model.model import LipReadingModel
     from generator.augmentation import JitterAug, MirrorAug
 
-    from generator.post_processing import HalfFrame, FrameSampler, MouthOnly, MouthOnlyCentroid
+    from generator.post_processing import HalfFrame, FrameSampler, MouthOnly, MouthOnlyCentroid, MouthJP
     
     architectures = {
       "lipnet": LipNet,
@@ -82,7 +82,8 @@ def main(args = None):
     lazy_ts = {
       1: None,
       2: MouthOnly,
-      3: MouthOnlyCentroid
+      3: MouthOnlyCentroid,
+      4: MouthJP
     }
 
     post_processing = None

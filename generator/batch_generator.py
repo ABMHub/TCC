@@ -43,8 +43,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     self.generator_steps = int(np.ceil(len(self.data) / self.batch_size))
 
     if self.mean is None:
-      self.mean, self.std_var = np.zeros(3), np.ones(3)
-      self.mean, self.std_var = self.__get_std_params()
+      self.mean, self.std_var = self.__get_std_params(post_processing)
 
     self.lm = config.lm
     self.lm_mean, self.lm_std_var = None, None
@@ -75,11 +74,14 @@ class BatchGenerator(tf.keras.utils.Sequence):
   def on_epoch_end(self):
     self.epoch += 1
 
-  def __get_std_params(self):
+  def __get_std_params(self, post_processing = None):
     pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
     videos_mean = []
-    axis = None if self.is_time_series else (0, 1, 2)
-    temp_video_gen = VideoGenerator([], False, 0, 1, 0, 1, None, False)
+    temp_video_gen = VideoGenerator([], False, 0, 1, 0, 1, post_processing, False, False)
+
+    data = temp_video_gen.load_video(self.video_paths[0], self.aligns[0], 0, False)[0]
+    axis = tuple(range(len(data.shape)-1))
+
     for i in range(len(self.video_paths)):
       data = temp_video_gen.load_video(self.video_paths[i], self.aligns[i], 0, False)[0]
       videos_mean.append(np.mean(data, axis=axis))
@@ -88,9 +90,9 @@ class BatchGenerator(tf.keras.utils.Sequence):
     shape = data.shape
 
     dataset_mean = np.mean(videos_mean, axis=0) # a media nao esta exata. o ultimo batch eh menor
-    if not isinstance(dataset_mean, np.ndarray):
-      dataset_mean = np.array([dataset_mean])
-    dataset_std = np.zeros(1) if self.is_time_series else np.zeros(3)
+    # if not isinstance(dataset_mean, np.ndarray):
+      # dataset_mean = np.array([dataset_mean])
+    dataset_std = np.zeros(len(dataset_mean))
 
     for i in range(len(self.video_paths)):
       data = temp_video_gen.load_video(self.video_paths[i], self.aligns[i], 0, False)[0]

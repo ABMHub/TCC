@@ -42,7 +42,7 @@ class MouthOnly(Augmentation):
   def __call__(self, video, align, **kwargs):
     return align, video[:, 48:68]
   
-class MouthOnlyCentroid2():
+class MouthOnlyCentroid():
   def __init__(self, **kwargs):
     self.name = "mouth only"
 
@@ -54,7 +54,7 @@ class MouthOnlyCentroid2():
 
     return align, coords/mx
   
-class MouthOnlyCentroid():
+class MouthJP():
   def __init__(self, **kwargs):
     self.name = "mouth only"
 
