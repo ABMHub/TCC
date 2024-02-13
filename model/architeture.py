@@ -51,16 +51,16 @@ class LipNet1D(Architecture):
     model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(input)
 
     # model = tf.keras.layers.ZeroPadding1D(padding=2)(model)
-    # model = tf.keras.layers.Conv1D(32, 5, 2)(model)
-    # model = tf.keras.layers.BatchNormalization()(model)
-    # model = tf.keras.layers.Activation("relu")(model)
+    model = tf.keras.layers.Conv1D(32, 5, 1)(model)
+    model = tf.keras.layers.BatchNormalization()(model)
+    model = tf.keras.layers.Activation("relu")(model)
     # model = tf.keras.layers.MaxPool1D(pool_size=2, strides=2)(model)
     # model = tf.keras.layers.SpatialDropout1D(0.5)(model)
 
     # model = tf.keras.layers.ZeroPadding1D(padding=2)(model)
-    # model = tf.keras.layers.Conv1D(32, 5, 1)(model)
-    # model = tf.keras.layers.BatchNormalization()(model)
-    # model = tf.keras.layers.Activation("relu")(model)
+    model = tf.keras.layers.Conv1D(32, 7, 1)(model)
+    model = tf.keras.layers.BatchNormalization()(model)
+    model = tf.keras.layers.Activation("relu")(model)
     # model = tf.keras.layers.MaxPool1D(pool_size=2, strides=2)(model)
     # model = tf.keras.layers.SpatialDropout1D(0.5)(model)
 
