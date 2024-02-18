@@ -131,9 +131,9 @@ class LipReadingModel():
     # self.tpb = TimePerBatch()
     # callback_list = [self.tpb]
     callback_list = []
-    if tensorboard_logs is not None:
-      tb = tf.keras.callbacks.TensorBoard(os.path.join(tensorboard_logs, datetime.datetime.now().strftime("%Y%m%d-%H%M%S")), histogram_freq=1)
-      callback_list.append(tb)
+    tensorboard_path = os.path.join(tensorboard_logs, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    tb = tf.keras.callbacks.TensorBoard(tensorboard_path, histogram_freq=1)
+    callback_list.append(tb)
 
     if checkpoint_path is not None:
       model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
@@ -145,7 +145,7 @@ class LipReadingModel():
       )
       callback_list.append(model_checkpoint_callback)
       callback_list.append(MinEarlyStopping(monitor="val_loss", patience=patience, min_epoch=0))
-      callback_list.append(WERCheckpoint(checkpoint_path + "_wer", self.model, generator=self.data["wer_validation"]))
+      callback_list.append(WERCheckpoint(checkpoint_path + "_wer", self.model, generator=self.data["wer_validation"], log_dir=tensorboard_path))
     
     # self.evaluation.data["batches_per_epoch"] = self.data[1].generator_steps
 
@@ -154,6 +154,7 @@ class LipReadingModel():
 
     if checkpoint_path is not None:
       self.evaluation.to_csv(checkpoint_path)
+      self.evaluation.to_csv(checkpoint_path + "_wer")
 
   def predict(self, greedy = False) -> list[str]: # pd.dataframe?
     """Gera predição em string, utilizando beam_search.
@@ -196,7 +197,11 @@ class LipReadingModel():
     self.evaluation.data["prediction_time"] = pred_time/len(predictions)
 
     self.evaluation.data["datetime"] = str(datetime.datetime.now())
-    self.evaluation.data["best_last"] = "best" if self.model_path.endswith("best") else "last"
+
+    best_last = "last"
+    if self.model_path.endswith("best"): best_last = "best"
+    if self.model_path.endswith("wer"):  best_last = "wer"
+    self.evaluation.data["best_last"] = best_last
 
     self.evaluation.to_csv(save_metrics_folder_path)
     self.evaluation.to_csv(self.model_path)

@@ -32,11 +32,12 @@ class TimePerBatch(tf.keras.callbacks.Callback):
     self.batch_time = []
 
 class WERCheckpoint(tf.keras.callbacks.Callback):
-  def __init__(self, path, model, generator):
+  def __init__(self, path, model, generator, log_dir):
     self.path = path
     self.model : tf.keras.Model = model
     self.generator : BatchGenerator = generator
     self.decoder = SpellCTCDecoder()
+    self.log_writer = tf.summary.create_file_writer(os.path.join(log_dir, "metrics"))
 
     self.cer_list = []
     self.wer_list = []
@@ -63,6 +64,9 @@ class WERCheckpoint(tf.keras.callbacks.Callback):
 
     print("")
 
+    self._write_metric("cer_val", cer_score, epoch)
+    self._write_metric("wer_val", wer_score, epoch)
+
   def on_train_end(self, logs=None):
     pd.DataFrame({
       "epoch": list(range(1, len(self.wer_list)+1)), 
@@ -70,3 +74,11 @@ class WERCheckpoint(tf.keras.callbacks.Callback):
       "wer": self.wer_list
       }).to_csv(os.path.join(self.path, "wer.csv"), index=False)
 
+  def _write_metric(self, name, value, epoch):
+    with self.log_writer.as_default():
+      tf.summary.scalar(
+        name,
+        value,
+        step=epoch,
+      )
+      self.log_writer.flush()
