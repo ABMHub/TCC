@@ -18,7 +18,7 @@ def main(args = None):
   train.add_argument("epochs", help='Número de épocas para o treinamento.', type=int)
 
   train.add_argument("-m", "--trained_model_path", required=False, help="Opção para continuar treinamento prévio. Caminho para o modelo previamente treinado.")
-  train.add_argument("-l", "--logs_folder", required=False, help="Opção para salvar logs do tensorboard. Caminho para a pasta de logs.")
+  # train.add_argument("-l", "--logs_folder", required=False, help="Opção para salvar logs do tensorboard. Caminho para a pasta de logs.")
   train.add_argument("-u", "--unseen_speakers", required=False, action="store_true", default=False, help='Opção para fazer testes com pessoas não vistas pelo treino')
   train.add_argument("-s", "--skip_evaluation", required=False, action="store_true", default=False, help='Opção para pular geração de métricas "CER", "WER" e "BLEU"')
   train.add_argument("-g", "--choose_gpu", required=False, help="Opção para escolher uma GPU específica para o teste ou treinamento.")
@@ -113,17 +113,17 @@ def main(args = None):
       architecture = args["architecture"].lower()
       assert architecture in architectures.keys(), f"Arquitetura {architecture} não implementada"
       
-      checkpoint_path = args["save_model_path"] + "_best"
+      checkpoint_path = os.path.join("saved_models", args["save_model_path"] + "_best")
 
       arch_obj = architectures[architecture](half_frame = args["half_frame"], frame_sample = args["frame_sample"])
 
     model = LipReadingModel(
-      model_path = args["trained_model_path"],
-      architecture = arch_obj,
-      multi_gpu = multi_gpu,
+      model_path      = args["trained_model_path"],
+      architecture    = arch_obj,
+      multi_gpu       = multi_gpu,
       experiment_name = args["experiment_name"],
-      description = args["description"],
-      pre_processing = args.get("preprocessing_type"),
+      description     = args["description"],
+      pre_processing  = args.get("preprocessing_type"),
     )
 
     model.load_data(
@@ -142,11 +142,11 @@ def main(args = None):
     if mode == "train":
       model.fit(
         epochs = args["epochs"],
-        tensorboard_logs = args["logs_folder"],
+        tensorboard_logs = os.path.join("logs", args["save_model_path"]),
         checkpoint_path = checkpoint_path,
         patience=args["patience"]
       )
-      model.save_model(args["save_model_path"])
+      model.save_model(os.path.join("saved_models", args["save_model_path"]))
 
     if mode == "test" or not args["skip_evaluation"]:
       metrics_path = "./"

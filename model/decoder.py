@@ -81,11 +81,27 @@ class Decoder():
   def __init__(self):
     self.name = "Empty"
 
+  def gen_batches(self, pred, workers):
+    workers = min(len(pred), workers)
+
+    sections = []
+    section_size = len(pred)/workers
+    for i in range(workers):
+      start = section_size * i
+      end = section_size + start
+      sections.append(pred[int(round(start, 0)):int(round(end, 0))])
+
+    return sections
+  
+  def __call__(self, workers, pred, strings : list[str] = None, greedy = False) -> list[list[int]]:
+     raise NotImplementedError("Decoder parent class, __call__ method")
+
 class NgramCTCDecoder(Decoder):
   def __init__(self):
     self.name = 'ngram ctc decoder'
 
-  def __call__(self, batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
+  # def __call__(self, batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
+  def __call__(self, workers, pred, strings : list[str] = None, greedy = False) -> list[list[int]]:
     """_summary_
 
     Args:
@@ -96,6 +112,8 @@ class NgramCTCDecoder(Decoder):
     Returns:
         list: list of dimensions [batch, prediction, letter_index]
     """
+    batches = self.gen_batches(pred, workers)
+
     if greedy:
       sentences = []
       for b in batches:
@@ -128,7 +146,8 @@ class RawCTCDecoder(Decoder):
   def __init__(self):
     self.name = 'raw ctc decoder'
 
-  def __call__(self, batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
+  # def __call__(self, batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
+  def __call__(self, workers, pred, strings : list[str] = None, greedy = False) -> list[list[int]]:
     """_summary_
 
     Args:
@@ -139,6 +158,8 @@ class RawCTCDecoder(Decoder):
     Returns:
         list: list of dimensions [batch, prediction, letter_index]
     """
+    batches = self.gen_batches(pred, workers)
+
     if greedy:
       sentences = []
       for b in batches:
@@ -246,8 +267,9 @@ class SpellCTCDecoder(Decoder):
     self.path = os.path.join(os.path.dirname(__file__), "..", "util/grid.txt")
     self.obj = Spell(self.path)
 
-  def __call__(self, batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
-    sentences = RawCTCDecoder()(batches, workers, strings, greedy)
+  # def __call__(self, batches : list[predictions], workers : int, strings : list[str] = None, greedy = False) -> list[list[int]]:
+  def __call__(self, workers, pred, strings : list[str] = None, greedy = False) -> list[list[int]]:
+    sentences = RawCTCDecoder()(workers, pred, strings, greedy)
     
     for i in range(len(sentences)):
       sentences[i] = self.obj(sentences[i])

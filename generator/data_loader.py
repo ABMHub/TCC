@@ -143,5 +143,20 @@ def get_training_data(videos_path       : str,
     is_time_series  = is_time_series,
     standardize     = standardize, 
     )
+  
+  test_len = len(dataconfig.test[0])
+  random.seed(42)
+  sample = random.sample(range(test_len), max(test_len//10, 1))
+  dataconfig.test = (np.array(dataconfig.test[0])[sample], np.array(dataconfig.test[1])[sample])
 
-  return {"train": train, "validation": val}
+  wer_val = BatchGenerator(
+    config          = dataconfig, 
+    batch_size      = batch_size, 
+    training        = False, 
+    post_processing = post_processing, 
+    augmentation    = [], 
+    is_time_series  = is_time_series,
+    standardize     = standardize, 
+    )
+
+  return {"train": train, "validation": val, "wer_validation": wer_val}

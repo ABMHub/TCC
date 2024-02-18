@@ -10,7 +10,7 @@ import tensorflow as tf
 from keras import backend as K
 
 from model.loss import CTCLoss
-from model.callbacks import MinEarlyStopping, TimePerBatch
+from model.callbacks import MinEarlyStopping, TimePerBatch, WERCheckpoint
 from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
 from generator.data_loader import get_training_data
 from generator.batch_generator import BatchGenerator
@@ -145,6 +145,7 @@ class LipReadingModel():
       )
       callback_list.append(model_checkpoint_callback)
       callback_list.append(MinEarlyStopping(monitor="val_loss", patience=patience, min_epoch=0))
+      callback_list.append(WERCheckpoint(checkpoint_path + "_wer", self.model, generator=self.data["wer_validation"]))
     
     # self.evaluation.data["batches_per_epoch"] = self.data[1].generator_steps
 
@@ -167,15 +168,9 @@ class LipReadingModel():
     raw_pred = self.model.predict(self.data["validation"])
 
     workers = 8
-    sections = []
-    section_size = len(raw_pred)/workers
-    for i in range(workers):
-      start = section_size * i
-      end = section_size + start
-      sections.append(raw_pred[int(round(start, 0)):int(round(end, 0))])
 
     strings = self.data["train"].get_strings()
-    result = self.post_processing(sections, workers, strings, greedy=greedy)
+    result = self.post_processing(workers, raw_pred, strings, greedy=greedy)
     # result_nolm = self.post_processing(sections, workers, strings, greedy=greedy, language_model=False)
 
     return result
