@@ -5,13 +5,13 @@ from math import ceil
 
 class VideoGenerator:
   def __init__(self, 
-               augs : list[Augmentation],
+               augs     : list[Augmentation],
                training : bool,
-               mean : float,
-               std : float,
+               mean     : float,
+               std      : float,
 
                landmark_mean = None,
-               landmark_std = None,
+               landmark_std  = None,
                
                post_processing : Augmentation = None,
                apply_padding   : bool         = True,

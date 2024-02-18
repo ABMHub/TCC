@@ -163,9 +163,13 @@ def main(args = None):
 
       if mode == "train":
         model.load_model(checkpoint_path)
+        print("LOSS Best model:")
+        for decoder in decoders:
+          model.post_processing = decoder 
+          model.evaluate_model(save_metrics_folder_path = metrics_path)
 
-        print("Best model:")
-        # metrics_path = current_model_path + "_best"
+        model.load_model(checkpoint_path + "_wer")
+        print("WER Best model:")
         for decoder in decoders:
           model.post_processing = decoder 
           model.evaluate_model(save_metrics_folder_path = metrics_path)
