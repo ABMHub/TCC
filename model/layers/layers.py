@@ -1,15 +1,38 @@
 from keras import backend as K
 import tensorflow as tf
 
+class RConv3D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size, strides, kernel_initializer, **kwargs):
+        self.n_filters = filters
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.kernel_initializer = kernel_initializer
+        super(RConv3D, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        # Create a trainable weight variable for this layer.
+        self.conv = tf.keras.layers.Conv3D(filters=self.n_filters, kernel_size=self.kernel_size, strides=self.strides, kernel_initializer=self.kernel_initializer)
+
+        super(RConv3D, self).build(input_shape)  # Be sure to call this at the end
+
+    def call(self, input):
+        n = self.conv(input)
+        r = tf.reverse(input, axis=[3])
+        n2 = self.conv(r)        
+        return tf.math.reduce_max([n, n2], axis=0)
+
 class LipNetEncoder(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
+    def __init__(self, reflexive = False, **kwargs):
         super(LipNetEncoder, self).__init__(**kwargs)
         self.w_init = "he_normal"
+        self.reflexive = True
 
     def build(self, *args):
-        self.conv1 = tf.keras.layers.Conv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2), kernel_initializer=self.w_init)
-        self.conv2 = tf.keras.layers.Conv3D(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1), kernel_initializer=self.w_init)
-        self.conv3 = tf.keras.layers.Conv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1), kernel_initializer=self.w_init)
+        conv_class = RConv3D if self.reflexive else tf.keras.layers.Conv3D
+
+        self.conv1 = conv_class(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2), kernel_initializer=self.w_init)
+        self.conv2 = conv_class(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1), kernel_initializer=self.w_init)
+        self.conv3 = conv_class(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1), kernel_initializer=self.w_init)
 
         self.batch_norm1 = tf.keras.layers.BatchNormalization()
         self.batch_norm2 = tf.keras.layers.BatchNormalization()
@@ -38,6 +61,11 @@ class LipNetEncoder(tf.keras.layers.Layer):
         model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
         return model
+    
+    def get_config(self):
+        config = super().get_config()
+        config['reflexive'] = self.reflexive
+        return config
     
 class LipformerEncoder(tf.keras.layers.Layer):
     def __init__(self, hidden_output_size, output_size, **kwargs):
