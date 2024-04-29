@@ -10,8 +10,8 @@ import tensorflow as tf
 from keras import backend as K
 
 from model.loss import CTCLoss
-from model.callbacks import MinEarlyStopping, TimePerBatch, WERCheckpoint
-from model.layers.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
+from model.callbacks import MinEarlyStopping, WERCheckpoint
+from model.layers.cascaded_attention import CascadedAttention
 from generator.data_loader import get_training_data
 from generator.batch_generator import BatchGenerator
 from generator.augmentation import Augmentation

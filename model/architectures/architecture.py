@@ -2,7 +2,6 @@ import tensorflow as tf
 from keras import backend as K
 
 from model.loss import CTCLoss
-from model.layers.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
 
 from math import ceil
 
