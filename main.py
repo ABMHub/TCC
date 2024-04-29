@@ -64,7 +64,8 @@ def main(args = None):
   mode = args["mode"]
 
   if mode == "train" or mode == "test":
-    from model.architeture import LipNet, LCANet, m3D_2D_BLSTM, LipFormer, LipNet1D
+    from model.architectures.video import LipNet, LCANet, m3D_2D_BLSTM, LipFormer
+    from model.architectures.time_series import LipNet1D, Conformer
     from model.decoder import RawCTCDecoder, NgramCTCDecoder, SpellCTCDecoder
     from model.model import LipReadingModel
     from generator.augmentation import JitterAug, MirrorAug
@@ -77,6 +78,7 @@ def main(args = None):
       "lcanet": LCANet,
       "blstm":  m3D_2D_BLSTM,
       "lipformer": LipFormer,
+      "conformer": Conformer,
     }
 
     lazy_ts = {
@@ -111,6 +113,7 @@ def main(args = None):
 
     if mode == "train":
       architecture = args["architecture"].lower()
+      is1d = architecture == "lipnet1d" or architecture == "conformer"
       assert architecture in architectures.keys(), f"Arquitetura {architecture} não implementada"
       
       checkpoint_path = os.path.join("saved_models", args["save_model_path"] + "_best")
@@ -134,8 +137,8 @@ def main(args = None):
       unseen_speakers   = args["unseen_speakers"],
       landmark_features = args["landmark_features"],
       post_processing   = post_processing,
-      augmentation      = [MirrorAug(), JitterAug()] if arch_obj.name.lower() != "lipnet 1d" else [],
-      is_time_series    = arch_obj.name.lower() == "lipnet 1d",
+      augmentation      = [MirrorAug(), JitterAug()] if not is1d else [],
+      is_time_series    = is1d,
       standardize       = standardize,
     )
 

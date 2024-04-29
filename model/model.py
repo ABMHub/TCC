@@ -11,7 +11,7 @@ from keras import backend as K
 
 from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping, TimePerBatch, WERCheckpoint
-from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
+from model.layers.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
 from generator.data_loader import get_training_data
 from generator.batch_generator import BatchGenerator
 from generator.augmentation import Augmentation
@@ -19,7 +19,7 @@ from generator.augmentation import Augmentation
 from model.decoder import NgramCTCDecoder, Decoder
 
 from model.evaluation import bleu, Evaluation
-from model.architeture import LipNet, Architecture
+from model.architectures.video import LipNet, Architecture
 
 
 class LipReadingModel():

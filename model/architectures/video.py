@@ -1,86 +1,10 @@
 import tensorflow as tf
 from keras import backend as K
 
-from model.loss import CTCLoss
-from model.layers import Highway, CascadedAttention, LipformerEncoder, ChannelAttention, LipNetEncoder
+from model.layers.layers import LipformerEncoder, ChannelAttention, LipNetEncoder
+from model.layers.cascaded_attention import CascadedAttention, Highway
 
-from math import ceil
-
-class Architecture():
-  def __init__(self, half_frame : bool = False, frame_sample = 1, **kwargs):
-    self.name = self.name or "Empty"
-
-    if len(self.shape) == 4:
-      f, w, h, c = self.shape
-
-      self.rnn_size = 256
-      if half_frame:
-        self.rnn_size /= 2
-        self.shape = (f, w//2, h, c)
-
-      if frame_sample and frame_sample > 1:
-        self.rnn_size /= frame_sample
-        self.shape = (ceil(f/frame_sample), w, h, c)
-    
-    self.rnn_size = int(self.rnn_size)
-    self.metrics = []
-
-    self.model : tf.keras.Model = None
-    
-  def get_model(self):
-    raise NotImplementedError 
-  
-  def compile_model(self, model : tf.keras.Model, learning_rate : float = 1e-4, loss = CTCLoss(), **kwargs):
-    model.compile(tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=loss, **kwargs)
-
-class LipNet1D(Architecture):
-  def __init__(self, **kwargs):
-    
-    self.name = "LipNet 1D"
-
-    self.shape = (75, 20, 12)
-
-    self.rnn_size = 256
-
-    super().__init__(**kwargs)
-
-  def get_model(self):
-    K.clear_session()
-    input = tf.keras.layers.Input(shape=self.shape)
-
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(input)
-
-    model = tf.keras.layers.ZeroPadding1D(padding=2)(model)
-    model = tf.keras.layers.Conv1D(32, 5, 1)(model)
-    model = tf.keras.layers.BatchNormalization()(model)
-    model = tf.keras.layers.Activation("relu")(model)
-    model = tf.keras.layers.MaxPool1D(pool_size=2, strides=1)(model)
-    # model = tf.keras.layers.SpatialDropout1D(0.5)(model)
-
-    model = tf.keras.layers.ZeroPadding1D(padding=2)(model)
-    model = tf.keras.layers.Conv1D(64, 5, 1)(model)
-    model = tf.keras.layers.BatchNormalization()(model)
-    model = tf.keras.layers.Activation("relu")(model)
-    model = tf.keras.layers.MaxPool1D(pool_size=2, strides=1)(model)
-    # model = tf.keras.layers.SpatialDropout1D(0.5)(model)
-
-    model = tf.keras.layers.ZeroPadding1D(padding=3)(model)
-    model = tf.keras.layers.Conv1D(96, 7, 1)(model)
-    model = tf.keras.layers.BatchNormalization()(model)
-    model = tf.keras.layers.Activation("relu")(model)
-    model = tf.keras.layers.MaxPool1D(pool_size=2, strides=1)(model)
-    # model = tf.keras.layers.SpatialDropout1D(0.5)(model)
-
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True, kernel_initializer="orthogonal"))(model)
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, return_sequences=True, kernel_initializer="orthogonal"))(model)
-
-    model = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(28, kernel_initializer="he_normal"))(model)
-    model = tf.keras.layers.Activation("softmax")(model)
-
-    model = tf.keras.Model(input, model)
-    self.compile_model(model)
-
-    return model
+from model.architectures.architecture import Architecture
 
 class LipNet(Architecture):
   def __init__(self, **kwargs):
@@ -221,6 +145,3 @@ class m3D_2D_BLSTM(Architecture):
     self.compile_model(model)
 
     return model
-  
-
-architecture_list = [LipNet(), LipNet1D(), LCANet(), LipFormer(), m3D_2D_BLSTM()]
