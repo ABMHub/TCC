@@ -12,14 +12,22 @@ class RConv3D(tf.keras.layers.Layer):
     def build(self, input_shape):
         # Create a trainable weight variable for this layer.
         self.conv = tf.keras.layers.Conv3D(filters=self.n_filters, kernel_size=self.kernel_size, strides=self.strides, kernel_initializer=self.kernel_initializer)
+        self.norm = tf.keras.layers.BatchNormalization()
 
         super(RConv3D, self).build(input_shape)  # Be sure to call this at the end
 
     def call(self, input):
         n = self.conv(input)
+        n = self.norm(n)
+        n = tf.keras.layers.Activation("relu")(n)
+        
         r = tf.reverse(input, axis=[3])
-        n2 = self.conv(r)        
-        return tf.math.reduce_max([n, n2], axis=0)
+        n2 = self.conv(r)   
+        n2 = tf.reverse(n2, axis=[3])
+        n2 = self.norm(n2)
+        n2 = tf.keras.layers.Activation("relu")(n2)        
+        
+        return n + n2
 
 class LipNetEncoder(tf.keras.layers.Layer):
     def __init__(self, reflexive = False, **kwargs):
@@ -34,29 +42,29 @@ class LipNetEncoder(tf.keras.layers.Layer):
         self.conv2 = conv_class(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1), kernel_initializer=self.w_init)
         self.conv3 = conv_class(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1), kernel_initializer=self.w_init)
 
-        self.batch_norm1 = tf.keras.layers.BatchNormalization()
-        self.batch_norm2 = tf.keras.layers.BatchNormalization()
-        self.batch_norm3 = tf.keras.layers.BatchNormalization()
+        # self.batch_norm1 = tf.keras.layers.BatchNormalization()
+        # self.batch_norm2 = tf.keras.layers.BatchNormalization()
+        # self.batch_norm3 = tf.keras.layers.BatchNormalization()
 
     def call(self, input):
         model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(input)
         model = self.conv1(model)
-        model = self.batch_norm1(model)
-        model = tf.keras.layers.Activation("relu")(model)
+        # model = self.batch_norm1(model)
+        # model = tf.keras.layers.Activation("relu")(model)
         model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
         model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
         model = tf.keras.layers.ZeroPadding3D(padding=(1, 2, 2))(model)
         model = self.conv2(model)
-        model = self.batch_norm2(model)
-        model = tf.keras.layers.Activation("relu")(model)
+        # model = self.batch_norm2(model)
+        # model = tf.keras.layers.Activation("relu")(model)
         model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
         model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
         model = tf.keras.layers.ZeroPadding3D(padding=(1, 1, 1))(model)
         model = self.conv3(model)
-        model = self.batch_norm3(model)
-        model = tf.keras.layers.Activation("relu")(model)
+        # model = self.batch_norm3(model)
+        # model = tf.keras.layers.Activation("relu")(model)
         model = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))(model)
         model = tf.keras.layers.SpatialDropout3D(0.5)(model)
 
