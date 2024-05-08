@@ -474,6 +474,7 @@ def gen_all_heatmaps(corrs):
 
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
+from visualization.cuda_dtw import DTW
 
 def get_all_word_features(path, align_folder, raw_path, padding = False, flatten=False):
   d = {
@@ -543,15 +544,25 @@ def get_all_word_features(path, align_folder, raw_path, padding = False, flatten
 
   return d
 
+import torch
+
 def build_tsne(metric = "euclidian"):
   d = get_all_word_features(path, align_path, raw_path)
 
-  fi = ((d["word"] == "z") | (d["word"] == "again") | (d["word"] == "please") | (d["word"] == "seven"))
+  # fi = (((d["word"] == "z") | (d["word"] == "again") | (d["word"] == "please") | (d["word"] == "seven")))
   # fi = (d["person"] < 5)
 
-  d["data"] = d["data"][fi]
-  d["word"] = d["word"][fi]
-  d["person"] = d["person"][fi]
+  # d["data"] = d["data"][fi]
+  # d["word"] = d["word"][fi]
+  # d["person"] = d["person"][fi]
+
+  data_amount = 4000
+  # amount_filter = np.concatenate((np.ones(data_amount, dtype=bool), np.zeros(len(d["word"])-data_amount, dtype=bool)))
+  amount_filter = np.random.choice(range(len(d["data"])), data_amount, False)
+
+  d["data"] = d["data"][amount_filter]
+  d["word"] = d["word"][amount_filter]
+  d["person"] = d["person"][amount_filter]
 
   p = PCA(3, svd_solver="auto", whiten=True, random_state=42)
 
@@ -560,24 +571,37 @@ def build_tsne(metric = "euclidian"):
   for i in range(len(d["data"])):
     data_in = d["data"][i]
     # print("in", data_in.shape)
-    data_in = [a.flatten() for a in data_in]
-    data_in = np.swapaxes(data_in, 0, 1)
+    n_m.append([a.flatten() for a in data_in])
+    # data_in = np.swapaxes(data_in, 0, 1)
     # print(data_in.shape)
-    n_m.append(p.fit_transform(data_in).flatten())
+    # n_m.append(data_in.flatten())
     # print(n_m[-1].shape)
   
 
   # n_m = p.fit_transform(d["data"])
-  n_m = np.array(n_m)
+  n_m = np.array(n_m, object)
+  print(np.shape(n_m[0]))
 
   print(np.shape(n_m))
+  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+  dtw = DTW(True)
 
+  def metric(a, b):
+    # return fastdtw(n_m[int(a[0])], n_m[int(b[0])], radius=1)[0]
+    a = torch.FloatTensor([n_m[int(a[0])]])
+    a.to(device)
+    b = torch.FloatTensor([n_m[int(b[0])]])
+    b.to(device)
+    a = a.cuda()
+    b = b.cuda()
+    return dtw.forward(a, b)[0]
 
-  t1 = TSNE(verbose=1, n_jobs=-1, random_state=42, metric=metric)
-  r1 = t1.fit_transform(n_m, d["person"])
+  t1 = TSNE(verbose=10, n_jobs=-1, random_state=42, metric=metric)
+  # r1 = t1.fit_transform([[i] for i in range(len(n_m))], d["word"])
+  # r1 = t1.fit_transform(np.array(range(100))*np.ones((100, 100)))
 
   # t2 = TSNE(verbose=1, n_jobs=-1, random_state=42, metric=metric)
-  # r2 = t2.fit_transform(n_m, d["word"])
+  r1 = t1.fit_transform([[i] for i in range(len(n_m))], d["person"])
 
   return r1, None, d
 
@@ -622,17 +646,24 @@ def build_tsne(metric = "euclidian"):
 #   plt.savefig(folder(f"./240422/person_limited_{metric}.png"))
 #   plt.close()
 
-from dtw import *
-from fastdtw import fastdtw
-metric = lambda x, y, **kwargs : fastdtw(x, y, **kwargs)[0]
+# from dtw import *
+# from fastdtw import fastdtw
+
+# def fdtw(x, y, **kwargs):
+#   # print("debug")
+#   return fastdtw(x, y, radius=1)[0]
+# metric = lambda x, y, **kwargs : fastdtw(x, y, radius=1 **kwargs)[0]
 # metric = lambda x, y, **kwargs : dtw(x, y, **kwargs).distance
 # metric = fastdtw
 
-r1, r2, dic = build_tsne(metric)
+
+r1, r2, dic = build_tsne(None)
 plt.figure(figsize=(12, 12))
 sns.scatterplot(x = r1[:, 0], y = r1[:, 1], hue=dic["person"])
-plt.savefig(folder(f"./240422/person_limited_{'dtw'}.png"))
+plt.savefig(folder(f"./240506/person_limited_{'dtw'}.png"))
 plt.close()
+
+
 
   # plt.figure(figsize=(12, 12))
   # sns.scatterplot(x = r2[:, 0], y = r2[:, 1], hue=dic["word"])
