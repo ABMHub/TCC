@@ -2,17 +2,20 @@ from keras import backend as K
 import tensorflow as tf
 
 class RConv3D(tf.keras.layers.Layer):
-    def __init__(self, filters, kernel_size, strides, kernel_initializer, **kwargs):
+    def __init__(self, filters, kernel_size, strides, kernel_initializer, axis=3, norm_layer = None, **kwargs):
         self.n_filters = filters
         self.kernel_size = kernel_size
         self.strides = strides
         self.kernel_initializer = kernel_initializer
+        self.axis_reflection = axis
+        self.norm = norm_layer
         super(RConv3D, self).__init__(**kwargs)
 
     def build(self, input_shape):
         # Create a trainable weight variable for this layer.
         self.conv = tf.keras.layers.Conv3D(filters=self.n_filters, kernel_size=self.kernel_size, strides=self.strides, kernel_initializer=self.kernel_initializer)
-        self.norm = tf.keras.layers.BatchNormalization()
+        if self.norm is None:
+            self.norm = tf.keras.layers.BatchNormalization()
 
         super(RConv3D, self).build(input_shape)  # Be sure to call this at the end
 
@@ -21,26 +24,71 @@ class RConv3D(tf.keras.layers.Layer):
         n = self.norm(n)
         n = tf.keras.layers.Activation("relu")(n)
         
-        r = tf.reverse(input, axis=[3])
+        r = tf.reverse(input, axis=[self.axis_reflection])
         n2 = self.conv(r)   
-        n2 = tf.reverse(n2, axis=[3])
+        n2 = tf.reverse(n2, axis=[self.axis_reflection])
         n2 = self.norm(n2)
         n2 = tf.keras.layers.Activation("relu")(n2)        
         
-        return n + n2
+        return (n + n2)/2
+
+class DiverseConv3D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size, strides, kernel_initializer, **kwargs):
+        self.n_filters = filters
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.kernel_initializer = kernel_initializer
+        # self.axis_reflection = axis
+        super(DiverseConv3D, self).__init__(**kwargs)
+        
+    def build(self, input_shape):
+        # Create a trainable weight variable for this layer.
+        share = self.n_filters / 4
+
+        time = share * 1
+        horizontal = share * 1
+        regular = share * 2
+
+        self.norm = tf.keras.layers.BatchNormalization()
+
+        kwargs = {
+            "kernel_size": self.kernel_size,
+            "strides": self.strides,
+            "kernel_initializer": self.kernel_initializer,
+        }
+
+        self.convs = [
+            tf.keras.layers.Conv3D(filters=regular, **kwargs),
+            RConv3D(filters=horizontal, axis=3, **kwargs),
+            RConv3D(filters=time, axis=2, **kwargs)
+        ]       
+
+        super(DiverseConv3D, self).build(input_shape)  # Be sure to call this at the end
+    
+    def call(self, input):
+
+        outs = [
+            tf.keras.layers.ReLU()(
+                self.norm(self.convs[0](input))
+            ),
+            self.convs[1](input),
+            self.convs[2](input)
+        ]
+
+        return tf.concat(outs, axis=-1)
 
 class LipNetEncoder(tf.keras.layers.Layer):
     def __init__(self, reflexive = False, **kwargs):
         super(LipNetEncoder, self).__init__(**kwargs)
         self.w_init = "he_normal"
-        self.reflexive = True
+        # self.reflexive = True
 
     def build(self, *args):
-        conv_class = RConv3D if self.reflexive else tf.keras.layers.Conv3D
+        # conv_class = RConv3D if self.reflexive else tf.keras.layers.Conv3D
 
-        self.conv1 = conv_class(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2), kernel_initializer=self.w_init)
-        self.conv2 = conv_class(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1), kernel_initializer=self.w_init)
-        self.conv3 = conv_class(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1), kernel_initializer=self.w_init)
+        self.conv1 = DiverseConv3D(filters=32, kernel_size=(3, 5, 5), strides=(1, 2, 2), kernel_initializer=self.w_init)
+        self.conv2 = DiverseConv3D(filters=64, kernel_size=(3, 5, 5), strides=(1, 1, 1), kernel_initializer=self.w_init)
+        self.conv3 = DiverseConv3D(filters=96, kernel_size=(3, 3, 3), strides=(1, 1, 1), kernel_initializer=self.w_init)
 
         # self.batch_norm1 = tf.keras.layers.BatchNormalization()
         # self.batch_norm2 = tf.keras.layers.BatchNormalization()
