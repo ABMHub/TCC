@@ -81,7 +81,7 @@ class LipNetEncoder(tf.keras.layers.Layer):
     def __init__(self, reflexive = False, **kwargs):
         super(LipNetEncoder, self).__init__(**kwargs)
         self.w_init = "he_normal"
-        # self.reflexive = True
+        self.reflexive = True
 
     def build(self, *args):
         # conv_class = RConv3D if self.reflexive else tf.keras.layers.Conv3D
