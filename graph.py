@@ -477,16 +477,18 @@ from sklearn.decomposition import PCA
 from visualization.cuda_dtw import DTW
 
 def get_all_word_features(path, align_folder, raw_path, padding = False, flatten=False):
+  #from raw folder
   d = {
     "data": [],
     "word": [],
     "person": [],
+    "file": []
   }
 
   g1 = 0
   g2 = 1e8
 
-  for person in tqdm.tqdm(range(5)):
+  for person in tqdm.tqdm(range(34)):
     if person == 20: continue
 
     vids = os.listdir(path)
@@ -523,6 +525,7 @@ def get_all_word_features(path, align_folder, raw_path, padding = False, flatten
 
         d["word"].append(cp.sentence[0])
         d["person"].append(person)
+        d["file"].append(vid_name)
 
         g1 = max(g1, len(d["data"][-1]))
         g2 = min(g2, len(d["data"][-1]))
@@ -537,75 +540,164 @@ def get_all_word_features(path, align_folder, raw_path, padding = False, flatten
 
   # d["data"] = np.array(d["data"])
 
-  d["g"] = g2
+  # d["g"] = g2
   d["word"] = np.array(d["word"])
   d["person"] = np.array(d["person"])
   d["data"] = np.array(d["data"], dtype=object)
+  d["file"] = np.array(d["file"])
 
   return d
 
 import torch
 
-def build_tsne(metric = "euclidian"):
-  d = get_all_word_features(path, align_path, raw_path)
+def get_data_from_csv(amount = None):
+  path = "./visualization/dataset_info.csv"
+  info = pd.read_csv(path)
 
-  # fi = (((d["word"] == "z") | (d["word"] == "again") | (d["word"] == "please") | (d["word"] == "seven")))
-  # fi = (d["person"] < 5)
 
-  # d["data"] = d["data"][fi]
-  # d["word"] = d["word"][fi]
-  # d["person"] = d["person"][fi]
 
-  data_amount = 4000
-  # amount_filter = np.concatenate((np.ones(data_amount, dtype=bool), np.zeros(len(d["word"])-data_amount, dtype=bool)))
-  amount_filter = np.random.choice(range(len(d["data"])), data_amount, False)
-
-  d["data"] = d["data"][amount_filter]
-  d["word"] = d["word"][amount_filter]
-  d["person"] = d["person"][amount_filter]
-
-  p = PCA(3, svd_solver="auto", whiten=True, random_state=42)
-
-  # print(np.shape(d["data"]))
-  n_m = []
-  for i in range(len(d["data"])):
-    data_in = d["data"][i]
-    # print("in", data_in.shape)
-    n_m.append([a.flatten() for a in data_in])
-    # data_in = np.swapaxes(data_in, 0, 1)
-    # print(data_in.shape)
-    # n_m.append(data_in.flatten())
-    # print(n_m[-1].shape)
-  
-
-  # n_m = p.fit_transform(d["data"])
-  n_m = np.array(n_m, object)
-  print(np.shape(n_m[0]))
-
-  print(np.shape(n_m))
+def dtw_distance(a, b) -> np.ndarray:
+  # pass in batches, as: [batch, seq, dim]
   device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
   dtw = DTW(True)
+  a = torch.FloatTensor(a)
+  a.to(device)
+  b = torch.FloatTensor(b)
+  b.to(device)
+  a = a.cuda()
+  b = b.cuda()
+  return dtw.forward(a, b)[0]
+
+import pickle
+
+def calc_dtw_distances(df : pd.DataFrame):
+  if os.path.isfile("./visualization/distances.pkl"):
+    with open("./visualization/distances.pkl", 'rb') as f:
+      ret = pickle.load(f)
+
+  else:
+    ret = {}
+  # ret = {elem:{} for elem in df["file"]}
+
+  for i in tqdm.tqdm(range(len(df)), "Calculating DTW"):
+    for j in range(i, len(df)):
+      a = np.array([df.iloc[i]["data"]])
+      b = np.array([df.iloc[j]["data"]])
+
+      file_a = df.iloc[i]["file"]
+      file_b = df.iloc[j]["file"]
+
+      if file_a not in ret:
+        ret[file_a] = {}
+      if file_b not in ret:
+        ret[file_b] = {}
+
+      if file_b not in ret[file_a] or file_a not in ret[file_b]:
+        distance = float(dtw_distance(a, b))
+        ret[file_a][file_b] = distance
+        ret[file_b][file_a] = distance
+
+  return ret
+
+  
+
+
+# def build_tsne(metric = "euclidian"):
+#   d = get_all_word_features(path, align_path, raw_path)
+
+#   # fi = (((d["word"] == "z") | (d["word"] == "again") | (d["word"] == "please") | (d["word"] == "seven")))
+#   # fi = (d["person"] < 5)
+
+#   # d["data"] = d["data"][fi]
+#   # d["word"] = d["word"][fi]
+#   # d["person"] = d["person"][fi]
+
+#   data_amount = 4000
+#   # amount_filter = np.concatenate((np.ones(data_amount, dtype=bool), np.zeros(len(d["word"])-data_amount, dtype=bool)))
+#   randomize = np.random.choice(range(len(d["data"])), len(d["data"]), False)
+
+#   d["data"] = d["data"][randomize]
+#   d["word"] = d["word"][randomize]
+#   d["person"] = d["person"][randomize]
+  
+
+#   p = PCA(3, svd_solver="auto", whiten=True, random_state=42)
+
+#   # print(np.shape(d["data"]))
+#   n_m = []
+#   for i in range(len(d["data"])):
+#     data_in = d["data"][i]
+#     # print("in", data_in.shape)
+#     n_m.append([a.flatten() for a in data_in])
+#     # data_in = np.swapaxes(data_in, 0, 1)
+#     # print(data_in.shape)
+#     # n_m.append(data_in.flatten())
+#     # print(n_m[-1].shape)
+  
+
+#   # n_m = p.fit_transform(d["data"])
+#   n_m = np.array(n_m, object)
+#   print(np.shape(n_m[0]))
+
+#   print(np.shape(n_m))
+#   device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#   dtw = DTW(True)
+
+#   def metric(a, b):
+#     # return fastdtw(n_m[int(a[0])], n_m[int(b[0])], radius=1)[0]
+#     a = torch.FloatTensor([n_m[int(a[0])]])
+#     a.to(device)
+#     b = torch.FloatTensor([n_m[int(b[0])]])
+#     b.to(device)
+#     a = a.cuda()
+#     b = b.cuda()
+#     return dtw.forward(a, b)[0]
+
+#   t1 = TSNE(verbose=10, n_jobs=-1, random_state=42, metric=metric)
+#   # r1 = t1.fit_transform([[i] for i in range(len(n_m))], d["word"])
+#   # r1 = t1.fit_transform(np.array(range(100))*np.ones((100, 100)))
+
+#   # t2 = TSNE(verbose=1, n_jobs=-1, random_state=42, metric=metric)
+#   r1 = t1.fit_transform([[i] for i in range(len(n_m))], d["person"])
+
+#   return r1, None, d
+
+words = ['bin', 'lay', 'place', 'set', 'blue', 'green', 'red', 'white', 'at', 'by', 'in', 'with', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'x', 'y', 'z', 'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'again', 'now', 'please', 'soon']
+
+def build_tsne_dtw(metric = "euclidian"):
+  d = get_all_word_features(path, align_path, raw_path)
+
+  from_each_word = 110
+
+  np.random.seed(42)
+  randomize = np.random.choice(range(len(d["data"])), len(d["data"]), False)
+
+  d["data"] = d["data"][randomize]
+  d["word"] = d["word"][randomize]
+  d["person"] = d["person"][randomize]
+  d["file"] = d["file"][randomize]
+
+  ddf = pd.DataFrame(d)
+  ddf2 = pd.DataFrame()
+  for word in words:
+    ddf2 = pd.concat([ddf2, ddf[ddf["word"] == word].iloc[:from_each_word]], ignore_index=True, sort=False)
+
+  flattener = lambda data_in : [a.flatten() for a in data_in]
+  ddf2["data"] = ddf2["data"].map(flattener)
+  distance_dict = calc_dtw_distances(ddf2)
+
+  with open('./visualization/distances.pkl', 'wb') as f:
+    pickle.dump(distance_dict, f)
 
   def metric(a, b):
-    # return fastdtw(n_m[int(a[0])], n_m[int(b[0])], radius=1)[0]
-    a = torch.FloatTensor([n_m[int(a[0])]])
-    a.to(device)
-    b = torch.FloatTensor([n_m[int(b[0])]])
-    b.to(device)
-    a = a.cuda()
-    b = b.cuda()
-    return dtw.forward(a, b)[0]
+    file_a = ddf2.iloc[a]["file"].values[0]
+    file_b = ddf2.iloc[b]["file"].values[0]
+    return distance_dict[file_a][file_b]
 
   t1 = TSNE(verbose=10, n_jobs=-1, random_state=42, metric=metric)
-  # r1 = t1.fit_transform([[i] for i in range(len(n_m))], d["word"])
-  # r1 = t1.fit_transform(np.array(range(100))*np.ones((100, 100)))
+  r1 = t1.fit_transform([[i] for i in range(len(ddf2["file"]))])
 
-  # t2 = TSNE(verbose=1, n_jobs=-1, random_state=42, metric=metric)
-  r1 = t1.fit_transform([[i] for i in range(len(n_m))], d["person"])
-
-  return r1, None, d
-
-
+  return r1, ddf2
 
 # mkdir("visualization")
 # line_graph(data_moc)
@@ -657,10 +749,10 @@ def build_tsne(metric = "euclidian"):
 # metric = fastdtw
 
 
-r1, r2, dic = build_tsne(None)
+r1, dic = build_tsne_dtw(None)
 plt.figure(figsize=(12, 12))
-sns.scatterplot(x = r1[:, 0], y = r1[:, 1], hue=dic["person"])
-plt.savefig(folder(f"./240506/person_limited_{'dtw'}.png"))
+sns.scatterplot(x = r1[:, 0], y = r1[:, 1], hue=dic["word"])
+plt.savefig(folder(f"./240512/word_limited_{'dtw'}.png"))
 plt.close()
 
 
