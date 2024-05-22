@@ -665,36 +665,45 @@ def calc_dtw_distances(df : pd.DataFrame):
 words = ['bin', 'lay', 'place', 'set', 'blue', 'green', 'red', 'white', 'at', 'by', 'in', 'with', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'x', 'y', 'z', 'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'again', 'now', 'please', 'soon']
 
 def build_tsne_dtw(metric = "euclidian"):
-  d = get_all_word_features(path, align_path, raw_path)
+  # d = get_all_word_features(path, align_path, raw_path)
 
-  from_each_word = 110
+  from_each_word = 160
 
-  np.random.seed(42)
-  randomize = np.random.choice(range(len(d["data"])), len(d["data"]), False)
+  # np.random.seed(42)
+  # randomize = np.random.choice(range(len(d["data"])), len(d["data"]), False)
 
-  d["data"] = d["data"][randomize]
-  d["word"] = d["word"][randomize]
-  d["person"] = d["person"][randomize]
-  d["file"] = d["file"][randomize]
+  # d["data"] = d["data"][randomize]
+  # d["word"] = d["word"][randomize]
+  # d["person"] = d["person"][randomize]
+  # d["file"] = d["file"][randomize]
 
-  ddf = pd.DataFrame(d)
+  # ddf = pd.DataFrame(d)
+  ddf = pd.read_csv("./visualization/ddf2.csv")
+  # ddf.drop(columns="data").to_csv("./visualization/ddf2.csv")
   ddf2 = pd.DataFrame()
   for word in words:
     ddf2 = pd.concat([ddf2, ddf[ddf["word"] == word].iloc[:from_each_word]], ignore_index=True, sort=False)
 
-  flattener = lambda data_in : [a.flatten() for a in data_in]
-  ddf2["data"] = ddf2["data"].map(flattener)
-  distance_dict = calc_dtw_distances(ddf2)
+  # flattener = lambda data_in : [a.flatten() for a in data_in]
+  # ddf2["data"] = ddf2["data"].map(flattener)
+  # distance_dict = calc_dtw_distances(ddf2)
 
-  with open('./visualization/distances.pkl', 'wb') as f:
-    pickle.dump(distance_dict, f)
+  # with open('./visualization/distances.pkl', 'wb') as f:
+  #   pickle.dump(distance_dict, f)
+
+  with open("./visualization/distances.pkl", 'rb') as f:
+    distance_dict = pickle.load(f)
+
+  distance_dict = pd.DataFrame().from_records(distance_dict)
 
   def metric(a, b):
-    file_a = ddf2.iloc[a]["file"].values[0]
-    file_b = ddf2.iloc[b]["file"].values[0]
-    return distance_dict[file_a][file_b]
+    # file_a = ddf2.iloc[a]["file"].values[0]
+    # file_b = ddf2.iloc[b]["file"].values[0]
+    print(distance_dict.iloc[a,b].values[0][0])
 
-  t1 = TSNE(verbose=10, n_jobs=-1, random_state=42, metric=metric)
+    return distance_dict.iloc[a,b].values[0][0]
+
+  t1 = TSNE(verbose=10, n_jobs=-1, random_state=42, metric=metric, n_iter=100000)
   r1 = t1.fit_transform([[i] for i in range(len(ddf2["file"]))])
 
   return r1, ddf2
@@ -751,8 +760,8 @@ def build_tsne_dtw(metric = "euclidian"):
 
 r1, dic = build_tsne_dtw(None)
 plt.figure(figsize=(12, 12))
-sns.scatterplot(x = r1[:, 0], y = r1[:, 1], hue=dic["word"])
-plt.savefig(folder(f"./240512/word_limited_{'dtw'}.png"))
+sns.scatterplot(x = r1[:, 0], y = r1[:, 1], hue=dic["word"], alpha=0.5)
+plt.savefig(folder(f"./240512/word_limited_{'dtw'}_160_a.png"))
 plt.close()
 
 
