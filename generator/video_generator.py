@@ -17,8 +17,15 @@ class VideoGenerator:
                apply_padding   : bool         = True,
                standardize     : bool         = True
                ):
-    
-    self.augs = augs
+
+    self.augs = []
+    self.lm_augs = []
+
+    if augs is not None:
+      for aug in augs:
+        if aug.lm_only: self.lm_augs.append(aug)
+        else:           self.augs.append(aug)    
+
     self.info = None
     self.training = training
     self.mean, self.std = mean, std
@@ -37,7 +44,7 @@ class VideoGenerator:
     if len(self.augs) == 0:
       return None
     
-    return ", ".join([aug.name for aug in self.augs])
+    return ", ".join([aug.name for aug in self.augs + self.lm_augs])
   
   @property
   def post_name(self):
@@ -74,10 +81,19 @@ class VideoGenerator:
 
     return x, y
 
-  def load_landmark(self, landmark_path = None,): # as landmarks precisam sofrer augmentation tambem. provavelmente calcular angulos durante o treino
+  def load_landmark(self, landmark_path, epoch): # as landmarks precisam sofrer augmentation tambem. provavelmente calcular angulos durante o treino
     assert landmark_path is not None and self.lm_mean is not None, "Landmark feature load error"
 
     extension = landmark_path.split(".")[-1]
     loader = loaders[extension]
+    video = loader(landmark_path)
 
-    return (loader(landmark_path) - self.lm_mean)/self.lm_std
+    if self.training is True:
+      for aug in self.augs + self.lm_augs:
+        _, video = aug(video, None, epoch=epoch)
+
+    pad_size = self.n_frames - video.shape[0]
+    video = np.pad(video, [(0, pad_size), (0, 0)], "constant", constant_values=0)
+
+    return video
+    # return (video - self.lm_mean)/self.lm_std

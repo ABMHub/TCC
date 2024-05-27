@@ -2,16 +2,19 @@ import numpy as np
 from util.video import loaders
 from generator.align_processing import Align
 import random
+import math
 
 class Augmentation():
   def __init__(self, **kwargs):
     self.name = "Empty"
+    self.lm_only = False
   
   def __call__(self, video, align, **kwargs):
     return align, video
   
 class MirrorAug(Augmentation):
   def __init__(self, **kwargs):
+    super().__init__()
     self.name = "Horizontal Flip"
 
   def __call__(self, video, align, **kwargs):
@@ -23,6 +26,7 @@ class MirrorAug(Augmentation):
   
 class JitterAug(Augmentation):
   def __init__(self, **kwargs):
+    super().__init__()
     self.name = "Jittering"
     self.chance = 0.05
 
@@ -51,6 +55,7 @@ class JitterAug(Augmentation):
   
 class SingleWords(Augmentation):
   def __init__(self, **kwargs):
+    super().__init__()
     self.name = "single words"
     self.chance = 0.2
 
@@ -67,3 +72,23 @@ class SingleWords(Augmentation):
 
     return align, video
     
+class CosineLandmarkFeatures(Augmentation):
+  def __init__(self):
+    self.lm_only = True
+    self.face_countour = range(17)
+    self.lip_marks     = range(48, 68)
+    self.name          = "Cosine"
+
+  def __call__(self, landmarks, align, **kwargs):
+    out = []
+    for frame in range(len(landmarks)):
+      cosines = []
+      points = landmarks[frame]
+      for i in self.face_countour:
+        for j in self.lip_marks:
+          sub = points[i][0] - points[j][0]
+          hip = math.sqrt(sub**2 + (points[i][1] - points[j][1])**2)
+          cosines.append(abs(sub)/hip)
+      out.append(cosines)
+      
+    return align, np.array(out)

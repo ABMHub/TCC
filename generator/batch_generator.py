@@ -112,7 +112,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     lm_mean = []
     temp_video_gen = VideoGenerator([], False, 0, 1, 0, 1)
     for i in range(len(self.data)):
-      data = temp_video_gen.load_landmark(self.data[i][2])
+      data = temp_video_gen.load_landmark(self.data[i][2], 0)
       lm_mean.append(np.mean(data))
       pbar.update()
 
@@ -161,13 +161,13 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
       x.append(xp)
       y.append(yp)
-      if self.lm: lm.append(self.video_gen.load_landmark(vid[2]))
+      if self.lm: lm.append(self.video_gen.load_landmark(vid[2], 0))
       max_y_size = max(max_y_size, len(yp))
   
     x = np.array(x, dtype=np.float32)
     y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
 
     if self.lm: 
-      return {"visual_input": x, "landmark_input": np.array(lm)}, y
+      return {"visual_input": x, "landmark_input": np.array(lm, dtype=np.float32)}, y
     
     return x, y

@@ -68,7 +68,7 @@ def main(args = None):
     from model.architectures.time_series import LipNet1D, Conformer
     from model.decoder import RawCTCDecoder, NgramCTCDecoder, SpellCTCDecoder
     from model.model import LipReadingModel
-    from generator.augmentation import JitterAug, MirrorAug
+    from generator.augmentation import JitterAug, MirrorAug, CosineLandmarkFeatures
 
     from generator.post_processing import HalfFrame, FrameSampler, MouthOnly, MouthOnlyCentroid, MouthJP
     
@@ -137,7 +137,7 @@ def main(args = None):
       unseen_speakers   = args["unseen_speakers"],
       landmark_features = args["landmark_features"],
       post_processing   = post_processing,
-      augmentation      = [MirrorAug(), JitterAug()] if not is1d else [],
+      augmentation      = [MirrorAug(), JitterAug(), CosineLandmarkFeatures()] if not is1d else [],
       is_time_series    = is1d,
       standardize       = standardize,
     )

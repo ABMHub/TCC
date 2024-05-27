@@ -33,7 +33,7 @@ class DataConfig:
     self.train = (videos[0], aligns[0])
     self.test = (videos[1], aligns[1])
 
-    if landmark_features is not None:
+    if self.lm:
       lms_train = [p.replace("npz_mouths", "landmark_features") for p in videos[0]]
       lms_test = [p.replace("npz_mouths", "landmark_features") for p in videos[1]]
 
@@ -41,6 +41,20 @@ class DataConfig:
       self.test = self.test + (lms_test,)
 
       self.lm_mean, self.lm_std = None, None
+
+      for i, elem in enumerate(lms_train):
+        if not os.path.isfile(elem):
+          del self.train[0][i]
+          del self.train[1][i]
+          del self.train[2][i]
+
+      for i, elem in enumerate(lms_test):
+        if not os.path.isfile(elem):
+          del self.test[0][i]
+          del self.test[1][i]
+          del self.test[2][i]
+
+      
 
       if self.mode in landmark_features:
         self.lm_mean, self.lm_std = landmark_features[mode]["mean"], landmark_features[mode]["std"]
@@ -147,7 +161,7 @@ def get_training_data(videos_path       : str,
   test_len = len(dataconfig.test[0])
   random.seed(42)
   sample = random.sample(range(test_len), max(test_len//10, 1))
-  dataconfig.test = (np.array(dataconfig.test[0])[sample], np.array(dataconfig.test[1])[sample])
+  dataconfig.test = [np.array(dataconfig.test[i])[sample] for i in range(len(dataconfig.test))]
 
   wer_val = BatchGenerator(
     config          = dataconfig, 

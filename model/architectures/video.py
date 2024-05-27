@@ -76,25 +76,28 @@ class LipFormer(Architecture):
     visual_input = tf.keras.layers.Input(shape=self.shape, name="visual_input")
     landmark_input = tf.keras.layers.Input(shape=(75, 340), name="landmark_input")
 
-    visual_model = LipNetEncoder()(visual_input)
+    visual_model = LipNetEncoder(attention=True)(visual_input)
 
-    ch_att_output = ChannelAttention(16)(visual_model)
+    # ch_att_output = ChannelAttention(16)(visual_model)
     visual_model = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(visual_model)
 
-    visual_model = visual_model * K.expand_dims(ch_att_output)
+    # visual_model = visual_model * K.expand_dims(ch_att_output)
 
-    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(visual_model)
-    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(visual_model)
+    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(visual_model)
+    visual_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(visual_model)
 
-    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(landmark_input)
-    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(512, return_sequences=True))(landmark_model)
+    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(landmark_input)
+    landmark_model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(landmark_model)
 
-    model = LipformerEncoder(1024, 512)(visual_model, landmark_model)
+    model = LipformerEncoder(512, 256)(visual_model, landmark_model)
 
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
-    model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    model = CascadedAttention(256, 28)(model)
+    model = tf.keras.activations.softmax(model)
 
-    model = tf.keras.layers.Dense(28, activation="softmax")(model)
+    # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+    # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
+
+    # model = tf.keras.layers.Dense(28, activation="softmax")(model)
 
     model = tf.keras.Model([visual_input, landmark_input], model)
     self.compile_model(model, learning_rate=3e-4)
