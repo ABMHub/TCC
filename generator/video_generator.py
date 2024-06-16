@@ -1,99 +1,96 @@
 from generator.augmentation import Augmentation
 import numpy as np
 from util.video import loaders
-from math import ceil
+import os
+from generator.align_processing import Align
 
 class VideoGenerator:
   def __init__(self, 
                augs     : list[Augmentation],
                training : bool,
-               mean     : float,
-               std      : float,
+               mean     : list[float],
+               std      : list[float],
 
-               landmark_mean = None,
-               landmark_std  = None,
-               
-               post_processing : Augmentation = None,
                apply_padding   : bool         = True,
                standardize     : bool         = True
                ):
 
-    self.augs = []
-    self.lm_augs = []
-
-    if augs is not None:
-      for aug in augs:
-        if aug.lm_only: self.lm_augs.append(aug)
-        else:           self.augs.append(aug)    
+    self.augs = augs
 
     self.info = None
     self.training = training
     self.mean, self.std = mean, std
 
-    self.lm_mean, self.lm_std = landmark_mean, landmark_std
-    self.post_processing = post_processing or Augmentation()
+    # self.post_processing = post_processing or Augmentation()
     self.n_frames = 75
     self.apply_padding = apply_padding
     self.standardize = standardize
 
-    if post_processing and post_processing.name == "frame sampler":
-      self.n_frames = ceil(self.n_frames / post_processing.rate)
+    # if post_processing and post_processing.name == "frame sampler":
+      # self.n_frames = ceil(self.n_frames / post_processing.rate)
 
   @property
   def aug_name(self):
     if len(self.augs) == 0:
       return None
     
-    return ", ".join([aug.name for aug in self.augs + self.lm_augs])
+    return ", ".join([aug.name for aug in self.augs])
   
-  @property
-  def post_name(self):
-    if isinstance(self.post_processing, Augmentation):
-      return self.post_processing.name
+  # @property
+  # def post_name(self):
+  #   if isinstance(self.post_processing, Augmentation):
+  #     return self.post_processing.name
     
-    return None
+  #   return None
 
-  def load_video(self,
-                 video_path,
-                 align, epoch,
-                 standardize = None):
+  def load_data(self,
+                video_path  : os.PathLike,
+              ) -> np.ndarray:
+    """Loads data from given path
+
+    Args:
+        video_path (os.PathLike): data path
+
+    Returns:
+        ndarray: data numpy array
+    """
+
     extension = video_path.split(".")[-1]
     video_loader = loaders[extension]
 
+    return video_loader(video_path)
+
+  def augment_data(
+      self,
+      data        : tuple[np.ndarray],
+      align       : Align, 
+      epoch       : int  = 0,
+      standardize : bool = None
+  ):
     y = None
 
-    video = video_loader(video_path)
-    _, video = self.post_processing(video, align)
-    if self.training is True and self.augs is not None:
+    if self.augs is not None:
       for aug in self.augs:
-        align, video = aug(video, align, epoch=epoch)
+        if self.training or aug.on_test:
+          data, align = aug(data, align, epoch=epoch)
 
-    y = align.number_string
+    if align is not None:
+      y = align.number_string
 
-    x = np.array(video)
-    standardize = self.standardize
-    if standardize or (standardize is None and self.standardize):
-      x = (x - self.mean)/self.std
+    x = []
+    for i, modal in enumerate(data):
+      xt = np.array(modal)
+      if standardize or (standardize is None and self.standardize):
+        xt = (xt - self.mean[i])/self.std[i]
 
-    if self.apply_padding:
-      pad_size = self.n_frames - x.shape[0]
-      x = np.pad(x, [(0, pad_size), (0, 0), (0, 0), (0, 0)], "constant", constant_values=0)
+      if self.apply_padding:
+        pad_size = self.n_frames - xt.shape[0]
+        padding = [(0, pad_size)]
+        for _ in range(len(xt.shape)-1):
+          padding.append((0, 0))
+
+        xt = np.pad(xt, padding, "constant", constant_values=0)
+
+      x.append(xt)
 
     return x, y
-
-  def load_landmark(self, landmark_path, epoch): # as landmarks precisam sofrer augmentation tambem. provavelmente calcular angulos durante o treino
-    assert landmark_path is not None and self.lm_mean is not None, "Landmark feature load error"
-
-    extension = landmark_path.split(".")[-1]
-    loader = loaders[extension]
-    video = loader(landmark_path)
-
-    if self.training is True:
-      for aug in self.augs + self.lm_augs:
-        _, video = aug(video, None, epoch=epoch)
-
-    pad_size = self.n_frames - video.shape[0]
-    video = np.pad(video, [(0, pad_size), (0, 0)], "constant", constant_values=0)
-
-    return video
-    # return (video - self.lm_mean)/self.lm_std

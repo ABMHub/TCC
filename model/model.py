@@ -80,15 +80,12 @@ class LipReadingModel():
 
   def load_data(
       self,
-      x_path            : str,
+      x_path            : list[os.PathLike],
       y_path            : str,
       batch_size        : int                = 32, 
       validation_only   : bool               = False, 
       unseen_speakers   : bool               = False, 
-      landmark_features : bool               = False, 
-      post_processing   : Augmentation       = None,
       augmentation      : list[Augmentation] = None,
-      is_time_series    : bool               = False,
       standardize       : bool               = True,
     ):
     
@@ -108,15 +105,12 @@ class LipReadingModel():
       batch_size        = batch_size, 
       validation_only   = validation_only, 
       unseen_speakers   = unseen_speakers, 
-      landmark_features = landmark_features, 
-      post_processing   = post_processing,
       augmentation      = augmentation,
-      is_time_series    = is_time_series,
       standardize       = standardize,
     )
     
     self.evaluation.data["augmentation"] = self.evaluation.data["augmentation"] or self.data["train"].video_gen.aug_name
-    self.evaluation.data["lazy_process"] = self.evaluation.data["lazy_process"] or self.data["train"].video_gen.post_name
+    # self.evaluation.data["lazy_process"] = self.evaluation.data["lazy_process"] or self.data["train"].video_gen.post_name
     self.evaluation.data["data_split"]   = self.evaluation.data["data_split"]   or "unseen" if unseen_speakers else "ovelapped"
 
   def fit(self, epochs : int = 1, tensorboard_logs : str = None, checkpoint_path : str = None, patience = 0) -> None:
@@ -176,14 +170,7 @@ class LipReadingModel():
 
     return result
 
-  def evaluate_model(self, save_metrics_folder_path : str = None) -> tuple[float, float, float]:
-    assert self.data is not None
-    assert self.data["validation"] is not None
-
-    pred_time = time.time()
-    predictions = self.predict()
-    pred_time = int(time.time() - pred_time)
-
+  def evaluate_model(self, predictions : list[list[int]], pred_time : float = None, save_metrics_folder_path : str = None) -> tuple[float, float, float]:
     true = self.data["validation"].get_strings()
     
     self.evaluation.data["postprocessing_type"] = self.post_processing.name

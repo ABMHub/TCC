@@ -3,19 +3,18 @@ import numpy as np
 from generator.align_processing import Align
 import tqdm
 import random
-from generator.augmentation import MirrorAug, JitterAug, SingleWords, Augmentation
+from generator.augmentation import Augmentation
 from generator.video_generator import VideoGenerator
+from generator.data_config import DataConfig
 
 RANDOM_SEED = 42
   
 class BatchGenerator(tf.keras.utils.Sequence):
   def __init__(self, 
-               config, 
+               config          : DataConfig, 
                batch_size      : int, 
                training        : bool,
-               post_processing : Augmentation       = None,
                augmentation    : list[Augmentation] = None,
-               is_time_series  : bool               = False,
                standardize     : bool               = True
                ) -> None:
     super().__init__()
@@ -24,47 +23,34 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
     data = config.train if training else config.test
     self.mean, self.std_var = config.mean, config.std
-    # self.lm_mean, self.lm_std_var = None, None
 
-    self.video_paths = data[0]
+    self.x_paths = np.array(data[0])
+    self.modal_quant = len(self.x_paths)
 
     self.epoch = 0
 
     self.batch_size = batch_size
     self.training = training
-    self.is_time_series = is_time_series
+    self.augs = augmentation
 
-    self.aligns = [Align(elem) for elem in tqdm.tqdm(data[1], desc=f"{'Treinamento' if self.training else 'Validação'}: carregando os alinhamentos")]
-    self.data = []
+    mode_str = 'Treinamento' if self.training else 'Validação'
+    pbar = tqdm.tqdm(data[1], desc=f"{mode_str}: carregando os alinhamentos")
+    self.aligns = [Align(elem) for elem in pbar]
+    # self.data = list(zip(self.x_paths, self.aligns))
+    self.data_len = len(self.x_paths[0])
 
-    for i in range(len(self.video_paths)):
-      self.data.append((self.video_paths[i], self.aligns[i]))
+    self.generator_steps = int(np.ceil(self.data_len / self.batch_size))
 
-    self.generator_steps = int(np.ceil(len(self.data) / self.batch_size))
-
-    if self.mean is None:
-      self.mean, self.std_var = self.__get_std_params(post_processing)
-
-    self.lm = config.lm
-    self.lm_mean, self.lm_std_var = None, None
-    if self.lm:
-      for i in range(len(self.data)):
-        self.data[i] = self.data[i] + (data[2][i],)
-
-      self.lm_mean, self.lm_std_var = config.lm_mean, config.lm_std
-      if self.lm_mean is None:
-        self.lm_mean, self.lm_std_var = 0, 1
-        self.lm_mean, self.lm_std_var = self.__get_std_params_landmarks()
+    for i in range(len(self.mean)):
+      if self.mean[i] is None or self.std_var[i] is None:
+        self.mean[i], self.std_var[i] = self.__get_std_params(modal_position = i)
 
     self.video_gen = VideoGenerator(
-      augs            = augmentation, 
+      augs            = self.augs, 
       training        = self.training, 
       mean            = self.mean, 
       std             = self.std_var, 
-      landmark_mean   = self.lm_mean, 
-      landmark_std    = self.lm_std_var, 
-      post_processing = post_processing, 
-      apply_padding   = not self.is_time_series, 
+      apply_padding   = True, 
       standardize     = standardize
       )
 
@@ -74,71 +60,76 @@ class BatchGenerator(tf.keras.utils.Sequence):
   def on_epoch_end(self):
     self.epoch += 1
 
-  def __get_std_params(self, post_processing = None):
-    pbar = tqdm.tqdm(desc='Calculando media e desvio padrão', total=len(self.video_paths)*2, disable=False)
-    videos_mean = []
-    temp_video_gen = VideoGenerator([], False, 0, 1, 0, 1, post_processing, False, False)
+  def __get_std_params(self, modal_position : int = 0, no_channels : bool = False):
+    pbar = tqdm.tqdm(
+      desc=f'{modal_position}: Calculando media e desvio padrão', 
+      total=len(self.x_paths)*2, 
+      disable=False
+    )
 
-    data = temp_video_gen.load_video(self.video_paths[0], self.aligns[0], 0, False)[0]
-    axis = tuple(range(len(data.shape)-1))
+    temp_video_gen = VideoGenerator(
+      augs          = self.augs, 
+      training      = False,
+      mean          = 0.,
+      std           = 1.,
+      apply_padding = False,
+      standardize   = False,
+    )
 
-    for i in range(len(self.video_paths)):
-      data = temp_video_gen.load_video(self.video_paths[i], self.aligns[i], 0, False)[0]
-      videos_mean.append(np.mean(data, axis=axis))
+    def __sub(data):
+      inp = [None] * self.modal_quant
+      inp[modal_position] = data
+      return inp
+
+    temp_data = temp_video_gen.load_data(self.x_paths[modal_position, 0])
+    temp_data = temp_video_gen.augment_data(__sub(temp_data), None)[0][modal_position]
+
+    
+    shape = temp_data.shape
+    if shape[-1] > 12: no_channels = True # ! alerta de gambiarra
+    axis = None if no_channels else tuple(range(len(shape)-1)) 
+
+    videos_mean = [] 
+    for i in range(len(self.x_paths)):
+      temp_data = temp_video_gen.load_data(self.x_paths[modal_position, i])
+      temp_data = temp_video_gen.augment_data(__sub(temp_data), None)[0][modal_position]
+
+      videos_mean.append(np.mean(temp_data, axis=axis))
       pbar.update()
-
-    shape = data.shape
 
     dataset_mean = np.mean(videos_mean, axis=0) # a media nao esta exata. o ultimo batch eh menor
-    # if not isinstance(dataset_mean, np.ndarray):
-      # dataset_mean = np.array([dataset_mean])
+    if axis is None: dataset_mean = np.array([dataset_mean]) # ! continuacao da gambiarra
     dataset_std = np.zeros(len(dataset_mean))
 
-    for i in range(len(self.video_paths)):
-      data = temp_video_gen.load_video(self.video_paths[i], self.aligns[i], 0, False)[0]
-      # todo salvar a soma durante o passo anterior, subtrair mean*100*50*3 da soma para nao carregar 2x
-      dataset_std += np.sum(np.square(data - dataset_mean), axis=axis)
+    for i in range(len(self.x_paths)):
+      temp_data = temp_video_gen.load_data(self.x_paths[modal_position, i])
+      temp_data = temp_video_gen.augment_data(__sub(temp_data), None)[0][modal_position]
+
+      dataset_std += np.sum(np.square(temp_data - dataset_mean), axis=axis)
       pbar.update()
 
-    dataset_std = np.sqrt(dataset_std/(len(self.video_paths)*shape[0]*shape[1]*shape[2]))
+    number_of_elements = np.prod(shape) // len(dataset_mean)
+    dataset_std = np.sqrt(dataset_std/(len(self.x_paths)*number_of_elements))
     pbar.close()
 
     print(f"Média: {dataset_mean}\nDesvio Padrão: {dataset_std}")
 
     return dataset_mean, dataset_std    
-  
-  def __get_std_params_landmarks(self):
-    pbar = tqdm.tqdm(desc='Calculando media e desvio padrão das landmark features', total=len(self.data)*2, disable=False)
-    lm_mean = []
-    temp_video_gen = VideoGenerator([], False, 0, 1, 0, 1)
-    for i in range(len(self.data)):
-      data = temp_video_gen.load_landmark(self.data[i][2], 0)
-      lm_mean.append(np.mean(data))
-      pbar.update()
 
-    shape = data.shape
+  def __get_split_tuple(self, index : int) -> tuple[int, int]:
+    """Get data slice from the batch index
 
-    dataset_mean = np.mean(lm_mean, axis=0) # a media nao esta exata. o ultimo batch eh menor
-    dataset_std = 0
+    Args:
+        index (int): batch index
 
-    for i in range(len(self.data)):
-      data = temp_video_gen.load_landmark(self.data[i][2])
-      dataset_std += np.sum(np.square(data - dataset_mean))
-      pbar.update()
-
-    dataset_std = np.sqrt(dataset_std/(len(self.data)*shape[0]*shape[1]))
-    pbar.close()
-
-    print(f"Landmarks\nMédia: {dataset_mean}\nDesvio Padrão: {dataset_std}")
-
-    return dataset_mean, dataset_std    
-
-  def __get_split_tuple(self, index : int):
+    Returns:
+        tuple[int, int]: start and end of batch slice
+    """
     split_start = index * self.batch_size
     split_end   = split_start + self.batch_size
 
-    if split_end > len(self.data):
-      split_end = len(self.data)
+    if split_end > self.data_len:
+      split_end = self.data_len
 
     return split_start, split_end
 
@@ -148,26 +139,35 @@ class BatchGenerator(tf.keras.utils.Sequence):
   def __getitem__(self, index : int):
     return self.getitem(index)
 
-  def getitem(self, index : int, standardize = True):
+  def getitem(self, index : int, standardize = True): # ! atualmente sem augmentation
     split = self.__get_split_tuple(index)
 
-    batch_videos = self.data[split[0]:split[1]]
-    x = []
-    y = []
-    lm = []
-    max_y_size = 0
-    for vid in batch_videos:
-      xp, yp = self.video_gen.load_video(vid[0], vid[1], self.epoch, standardize)
+    batch_x = self.x_paths[:, split[0]:split[1]]
+    x = [[] for _ in range(self.modal_quant)]
 
-      x.append(xp)
-      y.append(yp)
-      if self.lm: lm.append(self.video_gen.load_landmark(vid[2], 0))
-      max_y_size = max(max_y_size, len(yp))
-  
-    x = np.array(x, dtype=np.float32)
+    batch_y = self.aligns[split[0]:split[1]]
+    max_y_size = 0
+    y = []
+
+    for i in range(len(batch_x[0])): # batch size
+      xp = []
+
+      for modality in range(len(batch_x)): # number of data streams
+        raw_data = self.video_gen.load_data(batch_x[modality][i])
+        xp.append(raw_data)
+
+      augmented_x, augmented_y = self.video_gen.augment_data(xp, batch_y[i])
+
+      max_y_size = max(max_y_size, len(augmented_y))
+      y.append(augmented_y)
+
+      _ = [x[i].append(elem) for i, elem in enumerate(augmented_x)]
+
+    x = [np.array(elem) for elem in x]
+
     y = np.array([Align.add_padding(elem, max_y_size) for elem in y])
 
-    if self.lm: 
-      return {"visual_input": x, "landmark_input": np.array(lm, dtype=np.float32)}, y
+    if self.modal_quant > 1: 
+      return {f"modal{i+1}": x[i] for i in range(self.modal_quant)}, y
     
-    return x, y
+    return x[0], y

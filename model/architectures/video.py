@@ -73,8 +73,8 @@ class LipFormer(Architecture):
     super().__init__(**kwargs)
 
   def get_model(self):
-    visual_input = tf.keras.layers.Input(shape=self.shape, name="visual_input")
-    landmark_input = tf.keras.layers.Input(shape=(75, 340), name="landmark_input")
+    visual_input = tf.keras.layers.Input(shape=self.shape, name="modal1") # video stream
+    landmark_input = tf.keras.layers.Input(shape=(75, 340), name="modal2") # landmark branch
 
     visual_model = LipNetEncoder(attention=True)(visual_input)
 
