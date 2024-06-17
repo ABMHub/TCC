@@ -83,14 +83,13 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
     temp_data = temp_video_gen.load_data(self.x_paths[modal_position, 0])
     temp_data = temp_video_gen.augment_data(__sub(temp_data), None)[0][modal_position]
-
     
     shape = temp_data.shape
     if shape[-1] > 12: no_channels = True # ! alerta de gambiarra
     axis = None if no_channels else tuple(range(len(shape)-1)) 
 
     videos_mean = [] 
-    for i in range(len(self.x_paths)):
+    for i in range(self.data_len):
       temp_data = temp_video_gen.load_data(self.x_paths[modal_position, i])
       temp_data = temp_video_gen.augment_data(__sub(temp_data), None)[0][modal_position]
 
@@ -101,7 +100,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
     if axis is None: dataset_mean = np.array([dataset_mean]) # ! continuacao da gambiarra
     dataset_std = np.zeros(len(dataset_mean))
 
-    for i in range(len(self.x_paths)):
+    for i in range(self.data_len):
       temp_data = temp_video_gen.load_data(self.x_paths[modal_position, i])
       temp_data = temp_video_gen.augment_data(__sub(temp_data), None)[0][modal_position]
 
@@ -109,7 +108,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
       pbar.update()
 
     number_of_elements = np.prod(shape) // len(dataset_mean)
-    dataset_std = np.sqrt(dataset_std/(len(self.x_paths)*number_of_elements))
+    dataset_std = np.sqrt(dataset_std/(self.data_len*number_of_elements))
     pbar.close()
 
     print(f"Média: {dataset_mean}\nDesvio Padrão: {dataset_std}")

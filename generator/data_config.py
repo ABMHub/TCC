@@ -14,6 +14,7 @@ class DataConfig:
       None if not stored
     `self.train`, `self.test`: train and test splits. tuples of x and y
       x has shape of [modal_quantity, data_size]
+    `self.train_len`, `self.val_len`: number of elements in each split
   """
   def __init__(self,
                data_dict         : list[dict], 
@@ -50,6 +51,9 @@ class DataConfig:
 
       train_split = list(data_set.intersection(train_split))
       val_split   = list(data_set.intersection(val_split))
+
+    self.train_len = len(train_split)
+    self.val_len = len(val_split)
 
     random.seed(42)
     random.shuffle(train_split)

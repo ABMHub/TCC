@@ -70,9 +70,9 @@ def get_training_data(x_path            : list[os.PathLike],
     standardize     = standardize, 
     )
   
-  test_len = len(dataconfig.test[0])
+  val_len = dataconfig.val_len
   random.seed(42)
-  sample = random.sample(range(test_len), max(test_len//10, 1))
+  sample = random.sample(range(val_len), max(val_len//10, 1))
   dataconfig.test = (
     [np.array(dataconfig.test[0][i])[sample] for i in range(len(dataconfig.test[0]))],
     np.array(dataconfig.test[1])[sample]
