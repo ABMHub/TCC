@@ -63,7 +63,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
   def __get_std_params(self, modal_position : int = 0, no_channels : bool = False):
     pbar = tqdm.tqdm(
       desc=f'{modal_position}: Calculando media e desvio padrão', 
-      total=len(self.x_paths)*2, 
+      total=self.data_len*2, 
       disable=False
     )
 
