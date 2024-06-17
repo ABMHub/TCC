@@ -25,9 +25,9 @@ class LipNetEncoder(tf.keras.layers.Layer):
         self.maxpool3 = tf.keras.layers.MaxPool3D(pool_size=(1, 2, 2), strides=(1, 2, 2))
 
         if self.attention:
-            self.att1 = PoolAttention()
-            self.att2 = PoolAttention()
-            self.att3 = PoolAttention()
+            self.att1 = ChannelAttention()
+            self.att2 = ChannelAttention()
+            self.att3 = ChannelAttention()
 
         self.drop1 = tf.keras.layers.SpatialDropout3D(0.5)
         self.drop2 = tf.keras.layers.SpatialDropout3D(0.5)
@@ -102,36 +102,6 @@ class LipformerEncoder(tf.keras.layers.Layer):
         config['dim'] = self.dim
         return config
     
-# from the paper "CBAM: Convolutional Block Attention Module"
-class ChannelAttention(tf.keras.layers.Layer):
-    def __init__(self, ratio = 16, **kwargs):
-        self.ratio = ratio
-        super(ChannelAttention, self).__init__(**kwargs)
- 
-    def build(self, input_shape):
-        self.dim = input_shape[1]
-
-        self.ffn1 = tf.keras.layers.Dense(self.dim // self.ratio, activation="relu")
-        self.ffn2 = tf.keras.layers.Dense(self.dim)
-        super(ChannelAttention, self).build(input_shape)
-
-    def _mlp(self, inputs):
-        return self.ffn2(self.ffn1(inputs))
-
-    def call(self, inputs):
-        max_out = tf.keras.layers.GlobalMaxPool3D()(inputs)
-        avg_out = tf.keras.layers.GlobalAvgPool3D()(inputs)
-
-        mlp_out = K.sigmoid(self._mlp(max_out) + self._mlp(avg_out))
-
-        return mlp_out
-    
-    def get_config(self):
-        config = super().get_config()
-        config['ratio'] = self.ratio
-        config['dim'] = self.dim
-        return config
-
 class LipformerCharacterDecoder(tf.keras.layers.Layer):
     def __init__(self, output_size : int, **kwargs):
         super(LipformerCharacterDecoder, self).__init__(**kwargs)
@@ -198,17 +168,21 @@ class LipformerCharacterDecoder(tf.keras.layers.Layer):
         config['output_size'] = self.output_size
         return config
 
-class PoolAttention(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super(PoolAttention, self).__init__(**kwargs)
+class ChannelAttention(tf.keras.layers.Layer):
+    def __init__(self, ratio = 16, **kwargs):
+        super(ChannelAttention, self).__init__(**kwargs)
+        self.ratio = ratio
  
     def build(self, input_shape): # [batch, timesteps, features]
         self.maxpool = tf.keras.layers.GlobalMaxPool3D(keepdims=True)
         self.avgpool = tf.keras.layers.GlobalAvgPool3D(keepdims=True)
 
-        self.mlp = tf.keras.layers.Dense(input_shape[-1])
+        self.mlp = tf.keras.Sequential([
+            tf.keras.layers.Dense(input_shape[-1]//self.ratio),
+            tf.keras.layers.Dense(input_shape[-1])
+        ], name="mlp")
 
-        super(PoolAttention, self).build(input_shape)
+        super(ChannelAttention, self).build(input_shape)
 
     def call(self, inputs):
         m = self.mlp(self.maxpool(inputs))
@@ -218,3 +192,7 @@ class PoolAttention(tf.keras.layers.Layer):
 
         return inputs * ma
     
+    def get_config(self):
+        config = super().get_config()
+        config['ratio'] = self.ratio
+        return config
