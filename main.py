@@ -69,7 +69,7 @@ def main(args = None):
     from model.architectures.time_series import LipNet1D, Conformer
     from model.decoder import RawCTCDecoder, NgramCTCDecoder, SpellCTCDecoder
     from model.model import LipReadingModel
-    from generator.augmentation import JitterAug, MirrorAug, CosineLandmarkFeatures, MouthJP
+    from generator.augmentation import JitterAug, MirrorAug, CosineLandmarkFeatures, MouthJP, CosineDiff
     
     architectures = {
       "lipnet": LipNet,
@@ -95,6 +95,7 @@ def main(args = None):
         MirrorAug([True, True], [False, True], [2, None]),
         JitterAug([True, True]),
         CosineLandmarkFeatures([False, True]),
+        CosineDiff([False, True])
       ]
 
     elif architecture in ["lipnet", "lcanet", "blstm"]:

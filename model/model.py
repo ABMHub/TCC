@@ -143,7 +143,7 @@ class LipReadingModel():
     
     # self.evaluation.data["batches_per_epoch"] = self.data[1].generator_steps
 
-    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list)#, use_multiprocessing=True, workers=2)
+    self.model.fit(x=self.data["train"], validation_data=self.data["validation"], epochs = epochs, callbacks=callback_list, use_multiprocessing=True, workers=4)
     self.evaluation.data["epochs_trained"] = self.data["train"].epoch
 
     if checkpoint_path is not None:
@@ -162,7 +162,7 @@ class LipReadingModel():
     print("Realizando predições...")
     raw_pred = self.model.predict(self.data["validation"])
 
-    workers = 8
+    workers = 5
 
     strings = self.data["train"].get_strings()
     result = self.post_processing(workers, raw_pred, strings, greedy=greedy)

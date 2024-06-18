@@ -129,6 +129,25 @@ class CosineLandmarkFeatures(Augmentation):
       
         data[k] = np.array(out)
     return data, align
+  
+class CosineDiff(Augmentation):
+  def __init__(self, mask : list[bool]):
+    self.name          = "CosineDiff"
+    self.mask          = mask
+    self.on_test       = True
+
+  def __diff(self, x):
+    dx = np.convolve(x, [0.5,0,-0.5], mode='same')
+    dx[0] = dx[1]
+    dx[-1] = dx[-2]
+    return dx
+
+  def __call__(self, data : list[np.ndarray], align : Align, **kwargs):
+    for k, allow in enumerate(self.mask):
+      if allow and data[k] is not None:
+        for frame in range(len(data[k])):
+          data[k][frame] = self.__diff(data[k][frame])
+    return data, align
 
 class HalfFrame(Augmentation):
   def __init__(self, **kwargs):
@@ -194,7 +213,7 @@ class MouthJP():
 
   def _diffTheta(self, x):
     dx = np.zeros_like(x)
-    dx[1:-1] = x[2:] - x[0:-2]; dx[-1] = dx[-2]; dx[0] = dx[1]
+    dx[1:-1] = x[2:] - x[0:-2];dx[-1] = dx[-2]; dx[0] = dx[1]
     temp = np.where(np.abs(dx)>np.pi)
     dx[temp] -= np.sign(dx[temp]) * 2 * np.pi
     dx *= 0.5
