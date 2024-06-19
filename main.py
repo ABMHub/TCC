@@ -77,6 +77,7 @@ def main(args = None):
       "lcanet": LCANet,
       "blstm":  m3D_2D_BLSTM,
       "lipformer": LipFormer,
+      "lipformerdiff": LipFormer,
       "conformer": Conformer,
     }
 
@@ -90,13 +91,14 @@ def main(args = None):
     augs = []
     architecture = args["architecture"].lower()
 
-    if architecture in ["lipformer"]:
+    if architecture in ["lipformer", "lipformerdiff"]:
       augs = [
         MirrorAug([True, True], [False, True], [2, None]),
         JitterAug([True, True]),
         CosineLandmarkFeatures([False, True]),
-        CosineDiff([False, True])
       ]
+      if architecture == "lipformerdiff":
+        augs.append(CosineDiff([False, True]))
 
     elif architecture in ["lipnet", "lcanet", "blstm"]:
       augs = [
