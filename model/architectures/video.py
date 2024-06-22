@@ -2,6 +2,7 @@ import tensorflow as tf
 from keras import backend as K
 
 from model.layers.layers import LipformerEncoder, ChannelAttention, LipNetEncoder
+from model.layers.lipformer_decoder import LipFormerDecoder
 from model.layers.cascaded_attention import CascadedAttention, Highway
 
 from model.architectures.architecture import Architecture
@@ -91,8 +92,7 @@ class LipFormer(Architecture):
 
     model = LipformerEncoder(512, 256)(visual_model, landmark_model)
 
-    model = CascadedAttention(256, 28)(model)
-    model = tf.keras.activations.softmax(model)
+    model = LipFormerDecoder(256, 28)(model)
 
     # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)

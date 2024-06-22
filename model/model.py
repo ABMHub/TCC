@@ -12,6 +12,7 @@ from keras import backend as K
 from model.loss import CTCLoss
 from model.callbacks import MinEarlyStopping, WERCheckpoint
 from model.layers.cascaded_attention import CascadedAttention
+from model.layers.lipformer_decoder import LipFormerDecoder
 from generator.data_loader import get_training_data
 from generator.batch_generator import BatchGenerator
 from generator.augmentation import Augmentation
@@ -65,7 +66,7 @@ class LipReadingModel():
   def load_model(self, path : str, inplace = True):
     K.clear_session()
     self.model_path = path
-    model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss(), "CascadedAttention": CascadedAttention})
+    model = tf.keras.models.load_model(path, custom_objects={'CTCLoss': CTCLoss(), "CascadedAttention": CascadedAttention, "LipFormerDecoder": LipFormerDecoder})
     self.evaluation.from_csv(path)
 
     if inplace:
