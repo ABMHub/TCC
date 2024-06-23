@@ -37,17 +37,23 @@ class LipFormerDecoderCell(tf.keras.layers.Layer):
     self.state_size = (self.output_size, self.hidden_state_size)
 
   def build(self, input_shape):
-    self.emb = self.add_weight(name='embedding', shape=(self.hidden_state_size, self.output_size), initializer=tf.keras.initializers.GlorotNormal(), trainable=True)
+    self.regularizer = "l1_l2"
+
+    self.emb = self.add_weight(
+      name='embedding', 
+      shape=(self.hidden_state_size, self.output_size), 
+      initializer=tf.keras.initializers.GlorotNormal(), 
+      trainable=True
+    )
 
     self.concat1 = tf.keras.layers.Concatenate(1)
     self.concat2 = tf.keras.layers.Concatenate(2)
 
     self.gru_p_d_cell = tf.keras.layers.GRUCell(self.hidden_state_size, activation="tanh")
 
-    self.d1 = tf.keras.layers.Dense(self.hidden_state_size, activation="tanh")
-    self.d2 = tf.keras.layers.Dense(1)
-
-    self.d3 = tf.keras.layers.Dense(self.output_size, activation="softmax")
+    self.d1 = tf.keras.layers.Dense(self.hidden_state_size, activation="tanh", kernel_regularizer=self.regularizer)
+    self.d2 = tf.keras.layers.Dense(1, kernel_regularizer=self.regularizer)
+    self.d3 = tf.keras.layers.Dense(self.output_size, activation="softmax", kernel_regularizer=self.regularizer)
 
   def call(self, inputs_at_t, states_at_t, constants):
     h_p_e = constants[0]
