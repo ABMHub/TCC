@@ -93,7 +93,7 @@ class LipformerEncoder(tf.keras.layers.Layer):
         cross_vis_out = self.cross_att_vis([vis_out, land_out, land_out])
         cross_land_out = self.cross_att_land([land_out, vis_out, vis_out])
 
-        return self.ffn2(cross_vis_out + cross_land_out)
+        return self.ffn2(self.ffn1(cross_vis_out + cross_land_out))
 
     def get_config(self):
         config = super().get_config()
