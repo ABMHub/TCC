@@ -141,6 +141,7 @@ class LipReadingModel():
       callback_list.append(model_checkpoint_callback)
       callback_list.append(MinEarlyStopping(monitor="val_loss", patience=patience, min_epoch=0))
       callback_list.append(WERCheckpoint(checkpoint_path + "_wer", self.model, generator=self.data["wer_validation"], log_dir=tensorboard_path))
+      callback_list.append(tf.keras.callbacks.ReduceLROnPlateau(factor=0.5, patience=4))
     
     # self.evaluation.data["batches_per_epoch"] = self.data[1].generator_steps
 
