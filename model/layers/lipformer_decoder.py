@@ -37,7 +37,7 @@ class LipFormerDecoderCell(tf.keras.layers.Layer):
     self.state_size = (self.output_size, self.hidden_state_size)
 
   def build(self, input_shape):
-    self.regularizer = "l1_l2"
+    self.regularizer = None
 
     self.emb = self.add_weight(
       name='embedding', 
