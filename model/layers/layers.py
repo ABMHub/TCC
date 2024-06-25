@@ -77,21 +77,25 @@ class LipformerEncoder(tf.keras.layers.Layer):
         self.dim = input_shape[2]
         self.timesteps = 1
 
-        self.att_vis = tf.keras.layers.Attention()
-        self.att_land = tf.keras.layers.Attention()
+        number_of_heads = 4
+        create_att = lambda : tf.keras.layers.MultiHeadAttention(num_heads=number_of_heads, key_dim=input_shape[-1])
 
-        self.cross_att_vis = tf.keras.layers.Attention()
-        self.cross_att_land = tf.keras.layers.Attention()
+        self.att_vis = create_att()
+        self.att_land = create_att()
+
+        self.cross_att_vis = create_att()
+        self.cross_att_land = create_att()
         
         self.ffn1 = tf.keras.layers.Dense(self.hidden_output_size, activation="relu")
         self.ffn2 = tf.keras.layers.Dense(self.output_size)
         super(LipformerEncoder, self).build(input_shape)
 
     def call(self, visual_features, landmark_features):
-        vis_out = self.att_vis([visual_features, visual_features, visual_features])
-        land_out = self.att_land([landmark_features, landmark_features, landmark_features])
-        cross_vis_out = self.cross_att_vis([vis_out, land_out, land_out])
-        cross_land_out = self.cross_att_land([land_out, vis_out, vis_out])
+        vis_out = self.att_vis(visual_features, visual_features)
+        land_out = self.att_land(landmark_features, landmark_features)
+        
+        cross_vis_out = self.cross_att_vis(vis_out, land_out)
+        cross_land_out = self.cross_att_land(land_out, vis_out)
 
         return self.ffn2(self.ffn1(cross_vis_out + cross_land_out))
 
