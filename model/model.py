@@ -164,7 +164,7 @@ class LipReadingModel():
     print("Realizando predições...")
     raw_pred = self.model.predict(self.data["validation"])
 
-    workers = 5
+    workers = 2
 
     strings = self.data["train"].get_strings()
     result = self.post_processing(workers, raw_pred, strings, greedy=greedy)
