@@ -78,7 +78,7 @@ class LipformerEncoder(tf.keras.layers.Layer):
         self.timesteps = 1
 
         number_of_heads = 4
-        create_att = lambda : tf.keras.layers.MultiHeadAttention(num_heads=number_of_heads, key_dim=input_shape[-1])
+        create_att = lambda : tf.keras.layers.Attention()
 
         self.att_vis = create_att()
         self.att_land = create_att()
