@@ -85,19 +85,21 @@ class LipformerEncoder(tf.keras.layers.Layer):
 
         self.cross_att_vis = create_att()
         self.cross_att_land = create_att()
+
+        self.concat = tf.keras.layers.Concatenate()
         
         self.ffn1 = tf.keras.layers.Dense(self.hidden_output_size, activation="relu")
         self.ffn2 = tf.keras.layers.Dense(self.output_size)
         super(LipformerEncoder, self).build(input_shape)
 
     def call(self, visual_features, landmark_features):
-        vis_out = self.att_vis(visual_features, visual_features)
-        land_out = self.att_land(landmark_features, landmark_features)
+        vis_out = self.att_vis([visual_features, visual_features])
+        land_out = self.att_land([landmark_features, landmark_features])
         
-        cross_vis_out = self.cross_att_vis(vis_out, land_out)
-        cross_land_out = self.cross_att_land(land_out, vis_out)
+        cross_vis_out = self.cross_att_vis([vis_out, land_out])
+        cross_land_out = self.cross_att_land([land_out, vis_out])
 
-        return self.ffn2(self.ffn1(cross_vis_out + cross_land_out))
+        return self.ffn2(self.ffn1(self.concat([cross_vis_out, cross_land_out])))
 
     def get_config(self):
         config = super().get_config()
