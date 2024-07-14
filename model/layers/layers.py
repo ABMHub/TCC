@@ -69,42 +69,54 @@ class LipNetEncoder(tf.keras.layers.Layer):
 class LipformerEncoder(tf.keras.layers.Layer):
     def __init__(self, hidden_output_size, output_size, **kwargs):
         super(LipformerEncoder, self).__init__(**kwargs)
-        self.output_size = output_size
         self.hidden_output_size = hidden_output_size
+        self.output_size = output_size
+        self.drop_rate = 0.3
 
     def build(self, input_shape):
-        self.timesteps = input_shape[1]
         self.dim = input_shape[2]
-        self.timesteps = 1
 
-        number_of_heads = 4
-        create_att = lambda : tf.keras.layers.Attention()
+        self.base_att = tf.keras.layers.Attention()
 
-        self.att_vis = create_att()
-        self.att_land = create_att()
+        self.dense_q_vis = tf.keras.layers.Dense(self.hidden_output_size)
+        self.dense_k_vis = tf.keras.layers.Dense(self.hidden_output_size)
+        self.dense_v_vis = tf.keras.layers.Dense(self.hidden_output_size)
 
-        self.cross_att_vis = create_att()
-        self.cross_att_land = create_att()
+        self.dense_q_land = tf.keras.layers.Dense(self.hidden_output_size)
+        self.dense_k_land = tf.keras.layers.Dense(self.hidden_output_size)
+        self.dense_v_land = tf.keras.layers.Dense(self.hidden_output_size)
+
+        self.norm = tf.keras.layers.LayerNormalization()
 
         self.concat = tf.keras.layers.Concatenate()
+
+        self.dropout = tf.keras.layers.Dropout(self.drop_rate)
         
         self.ffn1 = tf.keras.layers.Dense(self.hidden_output_size, activation="relu")
         self.ffn2 = tf.keras.layers.Dense(self.output_size)
         super(LipformerEncoder, self).build(input_shape)
 
     def call(self, visual_features, landmark_features):
-        vis_out = self.att_vis([visual_features, visual_features])
-        land_out = self.att_land([landmark_features, landmark_features])
-        
-        cross_vis_out = self.cross_att_vis([vis_out, land_out])
-        cross_land_out = self.cross_att_land([land_out, vis_out])
+        vis_q = self.dense_q_vis(visual_features)
+        vis_k = self.dense_k_vis(visual_features)
+        vis_v = self.dense_v_vis(visual_features)
 
-        return self.ffn2(self.ffn1(self.concat([cross_vis_out, cross_land_out])))
+        # vis_q = self.norm(vis_q)
+        # vis_q = self.norm(vis_k)
+
+        land_q = self.dense_q_land(landmark_features)
+        land_k = self.dense_k_land(landmark_features)
+        land_v = self.dense_v_land(landmark_features)
+
+        vis_att_out = self.dropout(self.base_att([vis_q, land_k, land_v]))
+        land_att_out = self.dropout(self.base_att([land_q, vis_k, vis_v]))
+
+        return self.ffn2(self.ffn1(self.concat([vis_att_out, land_att_out])))
 
     def get_config(self):
         config = super().get_config()
         config['output_size'] = self.output_size
-        config['timesteps'] = self.timesteps
+        config['drop_rate'] = self.drop_rate
         config['dim'] = self.dim
         return config
     
