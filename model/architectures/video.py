@@ -93,6 +93,7 @@ class LipFormer(Architecture):
     model = LipformerEncoder(512, 256)(visual_model, landmark_model)
 
     model = LipFormerDecoder(256, 28)(model)
+    model = tf.keras.activations.softmax(model)
 
     # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)
     # model = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(256, return_sequences=True))(model)

@@ -39,38 +39,30 @@ class LipFormerDecoderCell(tf.keras.layers.Layer):
   def build(self, input_shape):
     self.regularizer = None
 
-    self.emb = self.add_weight(
-      name='embedding', 
-      shape=(self.hidden_state_size, self.output_size), 
-      initializer=tf.keras.initializers.GlorotNormal(), 
-      trainable=True
-    )
+    self.emb = tf.keras.layers.Embedding(28, 256)
+    self.att = tf.keras.layers.AdditiveAttention()
 
     self.concat1 = tf.keras.layers.Concatenate(1)
-    self.concat2 = tf.keras.layers.Concatenate(2)
 
     self.gru_p_d_cell = tf.keras.layers.GRUCell(self.hidden_state_size, activation="tanh")
 
-    self.d1 = tf.keras.layers.Dense(self.hidden_state_size, activation="tanh", kernel_regularizer=self.regularizer)
-    self.d2 = tf.keras.layers.Dense(1, kernel_regularizer=self.regularizer)
-    self.d3 = tf.keras.layers.Dense(self.output_size, activation="softmax", kernel_regularizer=self.regularizer)
+    self.fc = tf.keras.layers.Dense(self.output_size, kernel_regularizer=self.regularizer)
 
   def call(self, inputs_at_t, states_at_t, constants):
     h_p_e = constants[0]
     p_i, h_p_d_i = states_at_t
 
-    p_i = tf.expand_dims(p_i, 1)
-    emb_out = tf.multiply(p_i, self.emb)
-    emb_out = tf.reduce_sum(emb_out, 1)
+    context_vector = self.att([tf.expand_dims(h_p_d_i, 1), h_p_e])
+    context_vector = tf.squeeze(context_vector, 1)
+
+    # shape = (batch_size, 1)
+    p_i = tf.argmax(p_i, axis=-1)
+
+    # shape = (batch_size, emb_dim)
+    emb_out = self.emb(p_i)
+
     h_p_d_i = self.gru_p_d_cell(emb_out, h_p_d_i)[0]
     
-    h_p_d_i_e = tf.repeat(tf.expand_dims(h_p_d_i, 1), 75, axis=1)
-    att_in = self.concat2([h_p_d_i_e, h_p_e])
-
-    att = self.d2(self.d1(att_in))
-    att = tf.keras.activations.softmax(att, axis=-2)
-
-    context = tf.reduce_sum(tf.multiply(att, h_p_e), 1)
-    p_i = self.d3(self.concat1([h_p_d_i, context]))
+    p_i = self.fc(self.concat1([h_p_d_i, context_vector]))
 
     return p_i, (p_i, h_p_d_i)
