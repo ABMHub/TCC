@@ -39,7 +39,7 @@ class LipFormerDecoderCell(tf.keras.layers.Layer):
   def build(self, input_shape):
     self.regularizer = None
 
-    self.emb = tf.keras.layers.Embedding(28, 256)
+    self.emb = tf.keras.layers.Embedding(28, self.hidden_state_size)
     self.att = tf.keras.layers.AdditiveAttention()
 
     self.concat1 = tf.keras.layers.Concatenate(1)
